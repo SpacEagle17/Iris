@@ -8,6 +8,7 @@ import net.irisshaders.iris.shaderpack.option.OptionSet;
 import net.irisshaders.iris.shaderpack.option.Profile;
 import net.irisshaders.iris.shaderpack.option.ProfileSet;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuProfileElement;
+import net.irisshaders.iris.shaderpack.option.menu.ProfileElementTracker;
 import net.irisshaders.iris.shaderpack.option.values.OptionValues;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -33,6 +34,7 @@ public class ProfileElementWidget extends BaseOptionElementWidget<OptionMenuProf
 	public void init(ShaderPackScreen screen, NavigationController navigation) {
 		super.init(screen, navigation);
 		this.setLabel(PROFILE_LABEL);
+		boolean secondProfileSet = ProfileElementTracker.isSecondProfileSet(this.element);
 
 		ProfileSet profiles = this.element.profiles;
 		OptionSet options = this.element.options;
@@ -44,7 +46,8 @@ public class ProfileElementWidget extends BaseOptionElementWidget<OptionMenuProf
 		this.previous = result.previous;
 		Optional<String> profileName = result.current.map(p -> p.name);
 
-		this.profileLabel = profileName.map(name -> GuiUtil.translateOrDefault(Component.literal(name), "profile." + name)).orElse(PROFILE_CUSTOM);
+		String translationKey = "profile" + (secondProfileSet ? "2." : ".") + profileName.orElse("custom");
+		this.profileLabel = profileName.map(name -> GuiUtil.translateOrDefault(Component.literal(name), translationKey)).orElse(PROFILE_CUSTOM);
 	}
 
 	@Override
@@ -66,7 +69,7 @@ public class ProfileElementWidget extends BaseOptionElementWidget<OptionMenuProf
 
 	@Override
 	public String getCommentKey() {
-		return "profile.comment";
+		return ProfileElementTracker.isSecondProfileSet(this.element) ? "profile2.comment" : "profile.comment";
 	}
 
 	@Override

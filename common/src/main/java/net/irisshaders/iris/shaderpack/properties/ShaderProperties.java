@@ -57,6 +57,7 @@ import java.util.function.Consumer;
 public class ShaderProperties {
 	final CustomUniforms.Builder customUniforms = new CustomUniforms.Builder();
 	private final Map<String, List<String>> profiles = new LinkedHashMap<>();
+	private final Map<String, List<String>> profiles2 = new LinkedHashMap<>();
 	private final Map<String, List<String>> subScreenOptions = new HashMap<>();
 	private final Map<String, Integer> subScreenColumnCount = new HashMap<>();
 	// TODO: private Map<String, String> optifineVersionRequirements;
@@ -608,6 +609,7 @@ public class ShaderProperties {
 			// Defining "sliders" multiple times in the properties file will only result in
 			// the last definition being used, should be tested if behavior matches OptiFine
 			handleWhitespacedListDirective(key, value, "sliders", sliders -> sliderOptions = sliders);
+			// handlePrefixedWhitespacedListDirective("profile2.", key, value, profiles2::put);
 			handlePrefixedWhitespacedListDirective("profile.", key, value, profiles::put);
 
 			if (handleIntDirective(key, value, "screen.columns", columns -> mainScreenColumnCount = columns)) {
@@ -620,6 +622,11 @@ public class ShaderProperties {
 
 			handleWhitespacedListDirective(key, value, "screen", options -> mainScreenOptions = options);
 			handlePrefixedWhitespacedListDirective("screen.", key, value, subScreenOptions::put);
+		});
+		original.forEach((keyObject, valueObject) -> {
+			String key = (String) keyObject;
+			String value = (String) valueObject;
+			handlePrefixedWhitespacedListDirective("profile2.", key, value, profiles2::put);
 		});
 	}
 
@@ -957,6 +964,10 @@ public class ShaderProperties {
 
 	public Map<String, List<String>> getProfiles() {
 		return profiles;
+	}
+
+	public Map<String, List<String>> getProfiles2() {
+		return profiles2;
 	}
 
 	public Optional<List<String>> getMainScreenOptions() {

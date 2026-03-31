@@ -22,9 +22,11 @@ public class OptionMenuContainer {
 	private final List<String> unusedOptions = new ArrayList<>(); // To be used when screens contain a "*" element
 	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>(); // Used by screens with "*" element
 	private final ProfileSet profiles;
+	private final ProfileSet profiles2;
 
 	public OptionMenuContainer(ShaderProperties shaderProperties, ShaderPackOptions shaderPackOptions, ProfileSet profiles) {
 		this.profiles = profiles;
+		this.profiles2 = ProfileSet.fromTree(shaderProperties.getProfiles2(), shaderPackOptions.getOptionSet());
 
 		// note: if the Shader Pack does not provide a list of options for the main screen, then dump all options on to
 		// the main screen by default.
@@ -68,6 +70,10 @@ public class OptionMenuContainer {
 
 	public ProfileSet getProfiles() {
 		return profiles;
+	}
+
+	public ProfileSet getProfiles2() {
+		return profiles2;
 	}
 
 	// Screens will call this when they contain a "*" element, so that the list of
