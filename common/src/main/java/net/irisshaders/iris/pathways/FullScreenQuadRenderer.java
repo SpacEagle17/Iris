@@ -1,6 +1,9 @@
 package net.irisshaders.iris.pathways;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.opengl.GlBuffer;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -9,6 +12,9 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.irisshaders.iris.gl.IrisRenderSystem;
 import net.irisshaders.iris.helpers.VertexBufferHelper;
+import net.irisshaders.iris.mixin.GpuDeviceAccessor;
+import org.lwjgl.opengl.GL32;
+import org.lwjgl.opengl.GL46C;
 
 /**
  * Renders a full-screen textured quad to the screen. Used in composite / deferred rendering.
@@ -38,5 +44,9 @@ public class FullScreenQuadRenderer {
 
 	public GpuBuffer getQuad() {
 		return quad;
+	}
+
+	public void bind() {
+		((GlDevice) ((GpuDeviceAccessor) RenderSystem.getDevice()).getBackend()).vertexArrayCache().bindVertexArray(DefaultVertexFormat.POSITION_TEX, (GlBuffer) quad);
 	}
 }

@@ -14,9 +14,11 @@ import net.caffeinemc.mods.sodium.client.render.chunk.shader.ChunkShaderOptions;
 import net.caffeinemc.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
 import net.caffeinemc.mods.sodium.client.util.FogParameters;
 import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.gl.IrisRenderSystem;
 import net.irisshaders.iris.gl.blending.BlendModeOverride;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.pipeline.WorldRenderingPipeline;
+import net.irisshaders.iris.shadows.ShadowRenderer;
 import net.irisshaders.iris.shadows.ShadowRenderingState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -35,11 +37,8 @@ public abstract class MixinShaderChunkRenderer {
 		BlendModeOverride.restore();
 	}
 
-	@Redirect(method = "begin", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_glBindFramebuffer(II)V"))
-	private void bindFramebufferLater(int p_412624_, int p_412635_) {}
-
 	@Redirect(method = "begin", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/ShaderChunkRenderer;compileProgram(Lnet/caffeinemc/mods/sodium/client/render/chunk/shader/ChunkShaderOptions;)Lnet/caffeinemc/mods/sodium/client/gl/shader/GlProgram;"))
-	private GlProgram<ChunkShaderInterface> redirectIrisProgram(ShaderChunkRenderer instance, ChunkShaderOptions options, TerrainRenderPass pass, @Local RenderTarget target) {
+	private GlProgram<ChunkShaderInterface> redirectIrisProgram(ShaderChunkRenderer instance, ChunkShaderOptions options, TerrainRenderPass pass) {
 		WorldRenderingPipeline pipeline = Iris.getPipelineManager().getPipelineNullable();
 
 		GlProgram<ChunkShaderInterface> program = null;
@@ -50,17 +49,16 @@ public abstract class MixinShaderChunkRenderer {
 		}
 
 		if (program == null) {
-			GlStateManager._glBindFramebuffer(36160, ((GlTexture)target.getColorTexture()).getFbo(((GlDevice) RenderSystem.getDevice()).directStateAccess(), target.getDepthTexture()));
 			return this.compileProgram(options);
 		}
 
 		return program;
 	}
 
-	@Redirect(method = "begin", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_viewport(IIII)V"))
-	private void redirectViewport(int i, int j, int k, int l) {
-		if (!ShadowRenderingState.areShadowsCurrentlyBeingRendered()) {
-			GlStateManager._viewport(i, j, k, l);
+	@Inject(method = "begin", at = @At(value = "HEAD"))
+	private void redirectViewport(TerrainRenderPass pass, FogParameters parameters, GpuSampler terrainSampler, CallbackInfo ci) {
+		if (ShadowRenderingState.areShadowsCurrentlyBeingRendered()) {
+			GlStateManager._viewport(0, 0, ShadowRenderer.RESOLUTION, ShadowRenderer.RESOLUTION);
 		}
 	}
 }

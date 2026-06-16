@@ -8,6 +8,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import net.irisshaders.iris.gl.GLDebug;
+import net.irisshaders.iris.gl.IrisRenderSystem;
 import net.irisshaders.iris.mixinterface.RenderTargetInterface;
 import net.irisshaders.iris.targets.Blaze3dRenderTargetExt;
 import org.jetbrains.annotations.Nullable;
@@ -58,6 +59,6 @@ public class MixinRenderTarget implements Blaze3dRenderTargetExt, RenderTargetIn
 
 	@Override
 	public void iris$bindFramebuffer() {
-		GlStateManager._glBindFramebuffer(GlConst.GL_FRAMEBUFFER, ((GlTexture) this.colorTexture).getFbo(((GlDevice) RenderSystem.getDevice()).directStateAccess(), this.depthTexture));
+		GlStateManager._glBindFramebuffer(GlConst.GL_FRAMEBUFFER, ((GlTexture) this.colorTexture).getFbo((IrisRenderSystem.getGlDevice()).directStateAccess(), this.depthTexture));
 	}
 }

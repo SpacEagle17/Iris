@@ -36,7 +36,7 @@ public class IrisConfig implements ConfigEntryPoint {
 			.addPage(builder.createExternalPage().setName(Component.translatable("options.iris.shaderPackSelection.title")).setScreenConsumer(i -> Minecraft.getInstance().setScreen(new ShaderPackScreen(i))))
 			.addPage(builder.createOptionPage().setName(Component.literal("Settings")).addOptionGroup(builder.createOptionGroup().addOption(builder.createExternalButtonOption(Identifier.fromNamespaceAndPath("iris", "settings")).setTooltip(Component.literal("Packs")).setName(Component.translatable("options.iris.shaderPackList"))
 				.setScreenConsumer(i -> Minecraft.getInstance().setScreen(new ShaderPackScreen(i)))))
-				.addOptionGroup(builder.createOptionGroup().addOption(builder.createEnumOption(Identifier.fromNamespaceAndPath("iris", "colorSpace"), ColorSpace.class)
+				.addOptionGroup(builder.createOptionGroup().addOption(builder.createEnumOption(Identifier.fromNamespaceAndPath("iris", "color_space"), ColorSpace.class)
 					.setBinding(i -> {
 						IrisVideoSettings.colorSpace = i;
 					}, () -> IrisVideoSettings.colorSpace)
@@ -51,7 +51,7 @@ public class IrisConfig implements ConfigEntryPoint {
 							}
 						})
 					.setElementNameProvider(ColorSpace::getName))
-					.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("iris", "shadowDistance"))
+					.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("iris", "shadow_distance"))
 						.setDefaultValue(32)
 						.setBinding(value -> IrisVideoSettings.shadowDistance = value, () -> IrisVideoSettings.getOverriddenShadowDistance(IrisVideoSettings.shadowDistance))
 						.setName(Component.translatable("options.iris.shadowDistance"))

@@ -54,6 +54,7 @@ public class IrisExclusiveUniforms {
 		uniforms.uniform1b(UniformUpdateFrequency.PER_TICK, "feetInWater", IrisExclusiveUniforms::getIsInShallowWater);
 		uniforms.uniform1b(UniformUpdateFrequency.PER_TICK, "inSwimmingAnimation", IrisExclusiveUniforms::getIsSwimming);
 		uniforms.uniform1b(UniformUpdateFrequency.PER_TICK, "isRiding", IrisExclusiveUniforms::getIsPassenger);
+		uniforms.uniform1b(UniformUpdateFrequency.PER_TICK, "isElytraFlying", IrisExclusiveUniforms::isElytraFlying);
 		uniforms.uniform1b(UniformUpdateFrequency.PER_TICK, "vehicleInWater", IrisExclusiveUniforms::getVehicleInShallowWater);
 		uniforms.uniform1i(UniformUpdateFrequency.PER_TICK, "vehicleId", IrisExclusiveUniforms::getVehicleId);
 		uniforms.uniform3d(PER_FRAME, "vehicleLookVector", IrisExclusiveUniforms::getVehicleLookVector);
@@ -123,7 +124,7 @@ public class IrisExclusiveUniforms {
 	private static Vector3d getRelativeVehiclePosition() {
 		if (Minecraft.getInstance().player == null) return ZERO;
 		if (Minecraft.getInstance().player.getVehicle() == null) return ZERO;
-		
+
 		Vec3 vehiclePos = Minecraft.getInstance().player.getVehicle().getPosition(CapturedRenderingState.INSTANCE.getTickDelta());
 
 		Vector3d pos = new Vector3d(vehiclePos.x, vehiclePos.y, vehiclePos.z);
@@ -160,6 +161,14 @@ public class IrisExclusiveUniforms {
 		}
 
 		return Minecraft.getInstance().player.isPassenger();
+	}
+
+	private static boolean isElytraFlying() {
+		if (Minecraft.getInstance().player == null) {
+			return false;
+		}
+
+		return Minecraft.getInstance().player.isFallFlying();
 	}
 
 	private static boolean isHeavyFog() {

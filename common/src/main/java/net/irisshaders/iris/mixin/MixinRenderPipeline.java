@@ -2,7 +2,6 @@ package net.irisshaders.iris.mixin;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.irisshaders.iris.Iris;
@@ -31,7 +30,7 @@ public class MixinRenderPipeline {
 				cir.setReturnValue(IrisVertexFormats.TERRAIN);
 			} else if (vf == DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP) {
 				cir.setReturnValue(IrisVertexFormats.GLYPH);
-			} else if (vf == DefaultVertexFormat.NEW_ENTITY) {
+			} else if (vf == DefaultVertexFormat.ENTITY) {
 				cir.setReturnValue(IrisVertexFormats.ENTITY);
 			}
 		}

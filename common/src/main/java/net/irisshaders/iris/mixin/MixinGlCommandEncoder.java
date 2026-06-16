@@ -7,8 +7,9 @@ import com.mojang.blaze3d.opengl.GlRenderPass;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.opengl.Uniform;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -55,7 +56,7 @@ public class MixinGlCommandEncoder {
 	private List<IrisProgram> programsToClear = new ArrayList<>();
 
 	// Do not change the viewport in the shadow pass.
-	@Redirect(method = "createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalInt;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/blaze3d/systems/RenderPass;", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_viewport(IIII)V"))
+	@Redirect(method = "createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalInt;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/blaze3d/systems/RenderPassBackend;", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_viewport(IIII)V"))
 	private void changeViewport(int i, int j, int k, int l) {
 		if (ShadowRenderingState.areShadowsCurrentlyBeingRendered()) {
 			return;
@@ -65,7 +66,7 @@ public class MixinGlCommandEncoder {
 	}
 
 	// Do not change the viewport in the shadow pass.
-	@Redirect(method = "createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalInt;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/blaze3d/systems/RenderPass;", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_glBindFramebuffer(II)V"))
+	@Redirect(method = "createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalInt;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/blaze3d/systems/RenderPassBackend;", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;_glBindFramebuffer(II)V"))
 	private void changeFramebuffer(int i, int j) {
 		if (ShadowRenderingState.areShadowsCurrentlyBeingRendered() || ImmediateState.safeToMultiply) {
 			this.tempFBO = j;
@@ -82,37 +83,7 @@ public class MixinGlCommandEncoder {
 		}
 	}
 
-	@Redirect(method = "writeToBuffer", at = @At(value = "FIELD", target = "Lcom/mojang/blaze3d/opengl/GlCommandEncoder;inRenderPass:Z"))
-	private boolean ignore(GlCommandEncoder instance) {
-		if (ImmediateState.temporarilyIgnorePass) {
-			return false;
-		} else {
-			return this.inRenderPass;
-		}
-	}
 
-	@Redirect(method = {
-		"writeToTexture(Lcom/mojang/blaze3d/textures/GpuTexture;Ljava/nio/ByteBuffer;Lcom/mojang/blaze3d/platform/NativeImage$Format;IIIIII)V",
-		"writeToTexture(Lcom/mojang/blaze3d/textures/GpuTexture;Lcom/mojang/blaze3d/platform/NativeImage;IIIIIIII)V",
-	}, at = @At(value = "FIELD", target = "Lcom/mojang/blaze3d/opengl/GlCommandEncoder;inRenderPass:Z"))
-	private boolean ignore2(GlCommandEncoder instance) {
-		if (ImmediateState.temporarilyIgnorePass) {
-			return false;
-		} else {
-			return this.inRenderPass;
-		}
-	}
-
-	@Redirect(method = {
-		"createRenderPass(Ljava/util/function/Supplier;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalInt;Lcom/mojang/blaze3d/textures/GpuTextureView;Ljava/util/OptionalDouble;)Lcom/mojang/blaze3d/systems/RenderPass;"
-	}, at = @At(value = "FIELD", target = "Lcom/mojang/blaze3d/opengl/GlCommandEncoder;inRenderPass:Z", ordinal = 0))
-	private boolean ignore3(GlCommandEncoder instance) {
-		if (ImmediateState.temporarilyIgnorePass) {
-			return false;
-		} else {
-			return this.inRenderPass;
-		}
-	}
 
 	@Unique
 	private static GlRenderPass lastPass;
@@ -134,7 +105,7 @@ public class MixinGlCommandEncoder {
 
 			glRenderPass.iris$getCustomPass().setupState();
 
-			RenderPipeline renderPipeline = glRenderPass.pipeline.info();
+			RenderPipeline pipeline = glRenderPass.pipeline.info();
 
 			if (glRenderPass.isScissorEnabled()) {
 				GlStateManager._enableScissorTest();
@@ -143,41 +114,47 @@ public class MixinGlCommandEncoder {
 				GlStateManager._disableScissorTest();
 			}
 
-			if (this.lastPipeline != renderPipeline) {
-				this.lastPipeline = renderPipeline;
+			if (this.lastPipeline != pipeline) {
+				this.lastPipeline = pipeline;
 
-				if (renderPipeline.getDepthTestFunction() != DepthTestFunction.NO_DEPTH_TEST) {
+				DepthStencilState depthStencilState = pipeline.getDepthStencilState();
+				if (depthStencilState != null) {
 					GlStateManager._enableDepthTest();
-					GlStateManager._depthFunc(GlConst.toGl(renderPipeline.getDepthTestFunction()));
+					GlStateManager._depthFunc(GlConst.toGl(depthStencilState.depthTest()));
+					GlStateManager._depthMask(depthStencilState.writeDepth());
+					if (depthStencilState.depthBiasConstant() == 0.0F && depthStencilState.depthBiasScaleFactor() == 0.0F) {
+						GlStateManager._disablePolygonOffset();
+					} else {
+						GlStateManager._polygonOffset(depthStencilState.depthBiasScaleFactor(), depthStencilState.depthBiasConstant());
+						GlStateManager._enablePolygonOffset();
+					}
 				} else {
 					GlStateManager._disableDepthTest();
+					GlStateManager._depthMask(false);
+					GlStateManager._disablePolygonOffset();
 				}
 
-				if (renderPipeline.isCull()) {
+				if (pipeline.isCull()) {
 					GlStateManager._enableCull();
 				} else {
 					GlStateManager._disableCull();
 				}
 
-				GlStateManager._polygonMode(1032, GlConst.toGl(renderPipeline.getPolygonMode()));
-				GlStateManager._depthMask(renderPipeline.isWriteDepth());
-				GlStateManager._colorMask(renderPipeline.isWriteColor(), renderPipeline.isWriteColor(), renderPipeline.isWriteColor(), renderPipeline.isWriteAlpha());
-
-				if (renderPipeline.getDepthBiasConstant() == 0.0F && renderPipeline.getDepthBiasScaleFactor() == 0.0F) {
-					GlStateManager._disablePolygonOffset();
+				if (pipeline.getColorTargetState().blendFunction().isPresent()) {
+					GlStateManager._enableBlend();
+					BlendFunction blendFunction = (BlendFunction)pipeline.getColorTargetState().blendFunction().get();
+					GlStateManager._blendFuncSeparate(
+						GlConst.toGl(blendFunction.sourceColor()),
+						GlConst.toGl(blendFunction.destColor()),
+						GlConst.toGl(blendFunction.sourceAlpha()),
+						GlConst.toGl(blendFunction.destAlpha())
+					);
 				} else {
-					GlStateManager._polygonOffset(renderPipeline.getDepthBiasScaleFactor(), renderPipeline.getDepthBiasConstant());
-					GlStateManager._enablePolygonOffset();
+					GlStateManager._disableBlend();
 				}
 
-				switch (renderPipeline.getColorLogic()) {
-					case NONE:
-						GlStateManager._disableColorLogicOp();
-						break;
-					case OR_REVERSE:
-						GlStateManager._enableColorLogicOp();
-						GlStateManager._logicOp(5387);
-				}
+				GlStateManager._polygonMode(1032, GlConst.toGl(pipeline.getPolygonMode()));
+				GlStateManager._colorMask(pipeline.getColorTargetState().writeMask());
 			}
 		}
 	}
@@ -189,7 +166,7 @@ public class MixinGlCommandEncoder {
 			if (sam != null && Iris.getPipelineManager().getPipelineNullable() instanceof IrisRenderingPipeline irp) {
 				irp.onSetAlbedoTex(sam.view());
 			}
-			is.iris$setupState(sam == null ? null : sam.view());
+			is.iris$setupState(glRenderPass.samplers, sam == null ? null : sam.view());
 			programsToClear.add(is);
 		}
 	}

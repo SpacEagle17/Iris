@@ -27,18 +27,18 @@ public class IrisPipelines {
 		assignToMain(RenderPipelines.SOLID_TERRAIN, p -> ShaderKey.TERRAIN_SOLID);
 		assignToMain(RenderPipelines.CUTOUT_TERRAIN, p -> ShaderKey.TERRAIN_CUTOUT);
 		assignToMain(RenderPipelines.TRANSLUCENT_TERRAIN, p -> ShaderKey.TERRAIN_TRANSLUCENT);
-		assignToMain(RenderPipelines.TRANSLUCENT_MOVING_BLOCK, p -> ShaderKey.MOVING_BLOCK);
+		assignToMain(RenderPipelines.TRANSLUCENT_BLOCK, p -> ShaderKey.MOVING_BLOCK);
 		assignToMain(RenderPipelines.WORLD_BORDER, p -> ShaderKey.TEXTURED);
 		assignToMain(RenderPipelines.ENTITY_CUTOUT, p -> getCutout(p));
-		assignToMain(RenderPipelines.ENTITY_CUTOUT_NO_CULL, p -> getCutout(p));
-		assignToMain(RenderPipelines.ENTITY_CUTOUT_NO_CULL_Z_OFFSET, p -> getCutout(p));
-		assignToMain(RenderPipelines.ENTITY_SMOOTH_CUTOUT, p -> getCutout(p));
-		assignToMain(RenderPipelines.ITEM_ENTITY_TRANSLUCENT_CULL, p -> getTranslucent(p));
+		assignToMain(RenderPipelines.ENTITY_CUTOUT_CULL, p -> getCutout(p));
+		assignToMain(RenderPipelines.ENTITY_CUTOUT_DISSOLVE, p -> getCutout(p));
+		assignToMain(RenderPipelines.ENTITY_TRANSLUCENT_CULL, p -> getTranslucent(p));
+		assignToMain(RenderPipelines.ITEM_TRANSLUCENT, p -> getTranslucent(p));
+		assignToMain(RenderPipelines.ITEM_CUTOUT, p -> getCutout(p));
 		assignToMain(RenderPipelines.ENTITY_TRANSLUCENT, p -> getTranslucent(p));
 		assignToMain(RenderPipelines.ENTITY_SHADOW, p -> getTranslucent(p));
-		assignToMain(RenderPipelines.ENTITY_NO_OUTLINE, p -> getTranslucent(p));
-		assignToMain(RenderPipelines.ENTITY_DECAL, p -> getCutout(p));
 		assignToMain(RenderPipelines.LINES, p -> ShaderKey.LINES);
+		assignToMain(RenderPipelines.LINES_TRANSLUCENT, p -> ShaderKey.LINES);
 		assignToMain(RenderPipelines.SECONDARY_BLOCK_OUTLINE, p -> ShaderKey.LINES);
 		assignToMain(RenderPipelines.STARS, p -> ShaderKey.SKY_BASIC);
 		assignToMain(RenderPipelines.SUNRISE_SUNSET, p -> ShaderKey.SKY_BASIC_COLOR);
@@ -58,6 +58,8 @@ public class IrisPipelines {
 		assignToMain(RenderPipelines.ENTITY_SOLID_Z_OFFSET_FORWARD, p -> getSolid(p));
 		assignToMain(RenderPipelines.END_GATEWAY, p -> ShaderKey.BLOCK_ENTITY);
 		assignToMain(RenderPipelines.ENERGY_SWIRL, p -> ShaderKey.ENTITIES_CUTOUT);
+		assignToMain(RenderPipelines.END_CRYSTAL_BEAM, p -> ShaderKey.ENTITIES_CUTOUT);
+		assignToMain(RenderPipelines.ENTITY_CUTOUT_Z_OFFSET, p -> ShaderKey.ENTITIES_CUTOUT);
 		assignToMain(RenderPipelines.LIGHTNING, p -> ShaderKey.LIGHTNING);
 		assignToMain(RenderPipelines.DRAGON_RAYS, p -> ShaderKey.LIGHTNING);
 		assignToMain(RenderPipelines.DRAGON_RAYS_DEPTH, p -> ShaderKey.LIGHTNING);
@@ -74,37 +76,38 @@ public class IrisPipelines {
 		assignToMain(RenderPipelines.TEXT_BACKGROUND, p -> ShaderKey.TEXT_BG);
 		assignToMain(RenderPipelines.TEXT_BACKGROUND_SEE_THROUGH, p -> ShaderKey.TEXT_BG);
 		assignToMain(RenderPipelines.TEXT_INTENSITY, p -> getTextIntensity(p));
-		assignToMain(RenderPipelines.DRAGON_EXPLOSION_ALPHA, p -> ShaderKey.ENTITIES_ALPHA);
 		assignToMain(RenderPipelines.CRUMBLING, p -> ShaderKey.CRUMBLING);
 		assignToMain(RenderPipelines.LEASH, p -> ShaderKey.LEASH);
 		assignToMain(RenderPipelines.CLOUDS, p -> ShaderKey.CLOUDS);
 		assignToMain(RenderPipelines.FLAT_CLOUDS, p -> ShaderKey.CLOUDS);
+		assignToMain(RenderPipelines.BANNER_PATTERN, p -> getTranslucent(p));
 
 		assignToShadow(RenderPipelines.SOLID_BLOCK, p -> ShaderKey.SHADOW_TERRAIN_CUTOUT);
 		assignToShadow(RenderPipelines.SOLID_TERRAIN, p -> ShaderKey.SHADOW_TERRAIN_CUTOUT);
 		assignToShadow(RenderPipelines.CUTOUT_TERRAIN, p -> ShaderKey.SHADOW_TERRAIN_CUTOUT);
 		assignToShadow(RenderPipelines.TRANSLUCENT_TERRAIN, p -> ShaderKey.SHADOW_TRANSLUCENT);
 		assignToShadow(RenderPipelines.CUTOUT_BLOCK, p -> ShaderKey.SHADOW_TERRAIN_CUTOUT);
-		assignToShadow(RenderPipelines.TRANSLUCENT_MOVING_BLOCK, p -> ShaderKey.SHADOW_TRANSLUCENT);
+		assignToShadow(RenderPipelines.TRANSLUCENT_BLOCK, p -> ShaderKey.SHADOW_TRANSLUCENT);
 		assignToShadow(RenderPipelines.ENTITY_CUTOUT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ARMOR_CUTOUT_NO_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.ITEM_ENTITY_TRANSLUCENT_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ARMOR_DECAL_CUTOUT_NO_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ENTITY_SOLID, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.CRUMBLING, p -> ShaderKey.SHADOW_TEX);
 		assignToShadow(RenderPipelines.ENTITY_SOLID_Z_OFFSET_FORWARD, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.ENTITY_CUTOUT_NO_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.ENTITY_CUTOUT_NO_CULL_Z_OFFSET, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.ENTITY_SMOOTH_CUTOUT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ENTITY_CUTOUT_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ITEM_CUTOUT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ITEM_TRANSLUCENT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ENTITY_TRANSLUCENT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ENTITY_CUTOUT_DISSOLVE, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ENTITY_TRANSLUCENT_CULL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.END_CRYSTAL_BEAM, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.ENTITY_CUTOUT_Z_OFFSET, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ENTITY_TRANSLUCENT_EMISSIVE, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.BREEZE_WIND, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.EYES, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.DRAGON_EXPLOSION_ALPHA, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
+		assignToShadow(RenderPipelines.BANNER_PATTERN, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 
-		assignToShadow(RenderPipelines.ENTITY_NO_OUTLINE, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.ENERGY_SWIRL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
-		assignToShadow(RenderPipelines.ENTITY_DECAL, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.GLINT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.WEATHER_DEPTH_WRITE, p -> ShaderKey.SHADOW_PARTICLES);
 		assignToShadow(RenderPipelines.WEATHER_NO_DEPTH_WRITE, p -> ShaderKey.SHADOW_PARTICLES);
@@ -127,6 +130,9 @@ public class IrisPipelines {
 		assignToShadow(RenderPipelines.END_GATEWAY, p -> ShaderKey.SHADOW_BLOCK);
 		assignToShadow(RenderPipelines.ARMOR_TRANSLUCENT, p -> ShaderKey.SHADOW_ENTITIES_CUTOUT);
 		assignToShadow(RenderPipelines.LIGHTNING, p -> ShaderKey.SHADOW_LIGHTNING);
+		assignToShadow(RenderPipelines.DRAGON_RAYS, p -> ShaderKey.SHADOW_LIGHTNING);
+		assignToShadow(RenderPipelines.DRAGON_RAYS_DEPTH, p -> ShaderKey.SHADOW_LIGHTNING);
+
 		// Check that all shaders are accounted for
 		//for (RenderPipeline pipeline : RenderPipelines.getStaticPipelines()) {
 		//	if (coreShaderMap.containsKey(pipeline) && !coreShaderMapShadow.containsKey(pipeline)) {
@@ -138,7 +144,10 @@ public class IrisPipelines {
 	private static ShaderKey getText(Object p) {
 		IrisRenderingPipeline pipeline = (IrisRenderingPipeline) p;
 
-		if (isBlockEntities(pipeline)) {
+		if (HandRenderer.INSTANCE.isActive()) {
+			// In 1.21.11+, held map uses this.
+			return (HandRenderer.INSTANCE.isRenderingSolid() ? ShaderKey.HAND_TEXT : ShaderKey.HAND_TEXT_TRANSLUCENT);
+		} else if (isBlockEntities(pipeline)) {
 			return (ShaderKey.TEXT_BE);
 		} else {
 			return (ShaderKey.TEXT);
@@ -206,7 +215,7 @@ public class IrisPipelines {
 		if (HandRenderer.INSTANCE.isActive()) {
 			return (HandRenderer.INSTANCE.isRenderingSolid() ? ShaderKey.HAND_CUTOUT_DIFFUSE : ShaderKey.HAND_WATER_DIFFUSE);
 		} else if (isBlockEntities(pipeline)) {
-			return (ShaderKey.BLOCK_ENTITY);
+			return (ShaderKey.BE_TRANSLUCENT);
 		} else {
 			return (ShaderKey.ENTITIES_TRANSLUCENT);
 		}

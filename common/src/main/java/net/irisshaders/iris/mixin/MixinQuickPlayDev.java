@@ -27,8 +27,8 @@ public class MixinQuickPlayDev {
 			ci.cancel();
 
 			if (!minecraft.getLevelSource().levelExists(string)) {
-				minecraft.createWorldOpenFlows().createFreshLevel(string, new LevelSettings(string, GameType.CREATIVE, false, Difficulty.HARD, true, new GameRules(FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS, FeatureFlags.REDSTONE_EXPERIMENTS)), WorldDataConfiguration.DEFAULT),
-					WorldOptions.defaultWithRandomSeed(), WorldPresets::createNormalWorldDimensions, Minecraft.getInstance().screen);
+				//minecraft.createWorldOpenFlows().createFreshLevel(string, new LevelSettings(string, GameType.CREATIVE, false, Difficulty.HARD, true, new GameRules(FeatureFlagSet.of(FeatureFlags.MINECART_IMPROVEMENTS, FeatureFlags.REDSTONE_EXPERIMENTS)), WorldDataConfiguration.DEFAULT),
+				//	WorldOptions.defaultWithRandomSeed(), WorldPresets::createNormalWorldDimensions, Minecraft.getInstance().screen);
 			} else {
 				minecraft.createWorldOpenFlows().openWorld(string, () -> minecraft.setScreen(new TitleScreen()));
 			}
