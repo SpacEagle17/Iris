@@ -402,7 +402,7 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 
 			// If the options list exists and search mode is active, hijack the escape key!
 			if (this.shaderOptionList != null && this.shaderOptionList.isSearchModeActive()) {
-				this.shaderOptionList.disableSearchMode();
+				this.shaderOptionList.disableSearchModeAndRebuild();
 				return true;
 			}
 
@@ -589,7 +589,7 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 	public void onClose() {
 
 		if (this.shaderOptionList != null) {
-			this.shaderOptionList.disableSearchMode();
+			this.shaderOptionList.disableSearchModeAndRebuild();
 		}
 
 		if (!dropChanges) {

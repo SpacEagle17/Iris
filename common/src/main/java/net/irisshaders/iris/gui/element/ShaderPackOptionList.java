@@ -129,9 +129,6 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		return this.irisSearch$searchModeActive;
 	}
 
-	/**
-	 * Cleanly deactivates search mode and completely restores the UI layout.
-	 */
 	public void disableSearchMode() {
 		this.irisSearch$searchModeActive = false;
 		this.irisSearch$typedSearchQuery = "";
@@ -141,6 +138,13 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		if (this.container != null) {
 			this.container.setSearchQuery(null);
 		}
+	}
+
+	/**
+	 * Cleanly deactivates search mode and completely restores the UI layout.
+	 */
+	public void disableSearchModeAndRebuild() {
+		disableSearchMode();
 		this.rebuild();
 	}
 
@@ -333,6 +337,10 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 			// Determine if we are on a subscreen or the main menu screen
 			boolean isSubScreen = navigation.getCurrentScreen() != null;
+
+			if (isSubScreen && irisSearch$searchModeActive){
+				disableSearchMode();
+			}
 
 			// FORCE the button slot to exist if we are on the main screen (for Search)
 			// OR if it's a subscreen that naturally wants a back button.
