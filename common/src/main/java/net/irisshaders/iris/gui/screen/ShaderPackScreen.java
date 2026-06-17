@@ -257,6 +257,11 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 		if (Iris.getCurrentPack().isPresent() && this.navigation != null) {
 			ShaderPack currentPack = Iris.getCurrentPack().get();
 
+			// Reset query on new UI load
+			if (currentPack.getMenuContainer() != null) {
+				currentPack.getMenuContainer().setSearchQuery(null);
+			}
+
 			this.shaderOptionList = new ShaderPackOptionList(this, this.navigation, currentPack, this.minecraft, this.width, this.height, 32, this.height - 58 - 36, 0, this.width);
 			this.navigation.setActiveOptionList(this.shaderOptionList);
 
@@ -394,6 +399,13 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 	@Override
 	public boolean keyPressed(KeyEvent event) {
 		if (event.isEscape()) {
+
+			// If the options list exists and search mode is active, hijack the escape key!
+			if (this.shaderOptionList != null && this.shaderOptionList.isSearchModeActive()) {
+				this.shaderOptionList.disableSearchMode();
+				return true;
+			}
+
 			if (this.guiHidden) {
 				this.guiHidden = false;
 				this.init();
@@ -575,6 +587,11 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 
 	@Override
 	public void onClose() {
+
+		if (this.shaderOptionList != null) {
+			this.shaderOptionList.disableSearchMode();
+		}
+
 		if (!dropChanges) {
 			applyChanges();
 		} else {

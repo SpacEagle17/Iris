@@ -19,9 +19,11 @@ public class OptionMenuContainer {
 
 	private final List<OptionMenuOptionElement> usedOptionElements = new ArrayList<>();
 	private final List<String> usedOptions = new ArrayList<>();
-	private final List<String> unusedOptions = new ArrayList<>(); // To be used when screens contain a "*" element
-	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>(); // Used by screens with "*" element
+	private final List<String> unusedOptions = new ArrayList<>();
+	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>();
 	private final ProfileSet profiles;
+
+	private final List<OptionMenuElement> originalMainElements = new ArrayList<>();
 
 	public OptionMenuContainer(ShaderProperties shaderProperties, ShaderPackOptions shaderPackOptions, ProfileSet profiles) {
 		this.profiles = profiles;
@@ -64,6 +66,9 @@ public class OptionMenuContainer {
 
 			entry.getKey().addAll(entry.getValue(), elementsToInsert);
 		}
+
+		// Capture the original layout elements right after they're finished initializing
+		this.originalMainElements.addAll(this.mainScreen.elements);
 	}
 
 	public ProfileSet getProfiles() {
@@ -83,5 +88,74 @@ public class OptionMenuContainer {
 		}
 
 		unusedOptions.remove(optionId);
+	}
+
+
+	/**
+	 * Sets the active search string and dynamically rewrites the mainScreen elements list.
+	 * Pass null or an empty string to restore the original layout.
+	 */
+	public void setSearchQuery(String query) {
+		String currentSearchQuery ;
+		if (query == null || query.trim().isEmpty()) {
+			this.mainScreen.elements.clear();
+			this.mainScreen.elements.addAll(this.originalMainElements);
+			return;
+		}
+
+		currentSearchQuery = query.toLowerCase(java.util.Locale.ROOT);
+		List<OptionMenuOptionElement> allFlatOptions = this.getAllOptionsFlattened();
+		List<OptionMenuElement> filteredResults = new ArrayList<>();
+
+		for (OptionMenuOptionElement element : allFlatOptions) {
+			String idPart = element.optionId != null ? element.optionId.toLowerCase(java.util.Locale.ROOT) : "";
+			String readableName = getReadableNameOfElement(element);
+			String namePart = readableName != null ? readableName.toLowerCase(java.util.Locale.ROOT) : "";
+
+			String matchTarget = idPart + " " + namePart;
+
+			if (matchTarget.contains(currentSearchQuery)) {
+				filteredResults.add(element);
+			}
+		}
+
+		this.mainScreen.elements.clear();
+		this.mainScreen.elements.addAll(filteredResults);
+	}
+
+	public List<OptionMenuOptionElement> getAllOptionsFlattened() {
+		List<OptionMenuOptionElement> flatList = new ArrayList<>();
+		List<String> seenOptionIds = new ArrayList<>();
+
+		for (OptionMenuOptionElement element : this.usedOptionElements) {
+			if (element == null) continue;
+			String id = element.optionId != null ? element.optionId : element.toString();
+
+			if (!seenOptionIds.contains(id)) {
+				seenOptionIds.add(id);
+				flatList.add(element);
+			}
+		}
+		return flatList;
+	}
+
+	/**
+	 * Resolves the localized user-facing name using safe translation methods
+	 * that do not trigger formatting string parsing exceptions.
+	 */
+	private String getReadableNameOfElement(OptionMenuOptionElement element) {
+		if (element == null || element.optionId == null) {
+			return null;
+		}
+
+		String optionId = element.optionId;
+		String translationKey = "option." + optionId;
+		net.minecraft.locale.Language languageEngine = net.minecraft.locale.Language.getInstance();
+
+		if (languageEngine.has(translationKey)) {
+			return languageEngine.getOrDefault(translationKey);
+		}
+
+		return null;
 	}
 }
