@@ -24,8 +24,6 @@ public class OptionMenuContainer {
 	private final ProfileSet profiles;
 
 	private final List<OptionMenuElement> originalMainElements = new ArrayList<>();
-	private static final String WHOLE_WORD_REGEX = "(?<=^|[^a-zA-Z0-9])%s(?=$|[^a-zA-Z0-9])";
-	private static final String STARTS_WITH_REGEX = "(?<=^|[^a-zA-Z0-9])%s";
 
 	public OptionMenuContainer(ShaderProperties shaderProperties, ShaderPackOptions shaderPackOptions, ProfileSet profiles) {
 		this.profiles = profiles;
@@ -141,9 +139,5 @@ public class OptionMenuContainer {
 	private void restoreOriginalLayout() {
 		this.mainScreen.elements.clear();
 		this.mainScreen.elements.addAll(this.originalMainElements);
-	}
-
-	private List<OptionMenuOptionElement> getAllOptionsFlattened() {
-		return ShaderSearchEngine.getAllOptionsFlattened(this.usedOptionElements);
 	}
 }
