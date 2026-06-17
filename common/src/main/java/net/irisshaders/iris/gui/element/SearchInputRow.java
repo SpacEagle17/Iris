@@ -9,7 +9,6 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import java.awt.Color;
 import java.util.List;
 
 public class SearchInputRow extends ShaderPackOptionList.BaseEntry {
@@ -77,7 +76,7 @@ public class SearchInputRow extends ShaderPackOptionList.BaseEntry {
 		if (this.editBox.getValue().isEmpty()) {
 			int hintX = boxX + 4;
 			int hintY = boxY + (this.editBox.getHeight() - 8) / 2;
-			guiGraphics.text(Minecraft.getInstance().font, Component.literal("Search options..."), hintX, hintY, Color.GRAY.getRGB());
+			guiGraphics.text(Minecraft.getInstance().font, Component.literal("Search options..."), hintX, hintY, -5592406); // -5592406 is RGBA(170, 170, 170, 255)
 		}
 	}
 
