@@ -47,7 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public class ShaderPackOptionList extends IrisContainerObjectSelectionList<ShaderPackOptionList.BaseEntry> {
+public class ShaderPackOptionList extends IrisContainerObjectSelectionList<ShaderPackOptionList.BaseEntry> implements ShaderListSearchFieldAccessor {
 	private static final Identifier MENU_LIST_BACKGROUND = Identifier.withDefaultNamespace("textures/gui/menu_background.png");
 	private final List<AbstractElementWidget<?>> elementWidgets = new ArrayList<>();
 	private final ShaderPackScreen screen;
@@ -55,10 +55,10 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 	private OptionMenuContainer container;
 
 	// --- Add these search UI tracking fields ---
-	private boolean searchModeActive = false;
-	private String typedSearchQuery = "";
-	private int savedCursorPosition = 0;
-	public net.minecraft.client.gui.components.EditBox activeSearchField = null;
+	private boolean irisSearch$searchModeActive = false;
+	private String irisSearch$typedSearchQuery = "";
+	private int irisSearch$savedCursorPosition = 0;
+	private net.minecraft.client.gui.components.EditBox irisSearch$activeSearchField = null;
 
 	public ShaderPackOptionList(ShaderPackScreen screen, NavigationController navigation, ShaderPack pack, Minecraft client, int width, int height, int top, int bottom, int left, int right) {
 		super(client, width, bottom, top + 4, bottom, left, right, 24);
@@ -72,18 +72,41 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		this.container = pack.getMenuContainer();
 	}
 
+	// --- Interface Implementation ---
+	@Override public boolean irisSearch$isSearchModeActive() { return this.irisSearch$searchModeActive; }
+	@Override public void irisSearch$setSearchModeActive(boolean active) { this.irisSearch$searchModeActive = active; }
+	@Override public String irisSearch$getTypedSearchQuery() { return this.irisSearch$typedSearchQuery; }
+	@Override public void irisSearch$setTypedSearchQuery(String query) { this.irisSearch$typedSearchQuery = query; }
+	@Override public int irisSearch$getSavedCursorPosition() { return this.irisSearch$savedCursorPosition; }
+	@Override public void irisSearch$setSavedCursorPosition(int pos) { this.irisSearch$savedCursorPosition = pos; }
+	@Override public net.minecraft.client.gui.components.EditBox irisSearch$getActiveSearchField() { return this.irisSearch$activeSearchField; }
+	@Override public void irisSearch$setActiveSearchField(net.minecraft.client.gui.components.EditBox box) { this.irisSearch$activeSearchField = box; }
+
+	@Override
+	public void irisSearch$triggerContainerSearchUpdate(String query) {
+		if (this.container != null) {
+			this.container.setSearchQuery(query);
+			this.rebuild();
+		}
+	}
+
+	// Expose the getter layout dimensions your standalone row will need via reflection later
+	public int getRowWidthDimension() { return this.getRowWidth(); }
+	public int getXDimension() { return this.getX(); }
+	public int getWidthDimension() { return this.getWidth(); }
+
 	public void rebuild() {
 		this.clearEntries();
 		this.setScrollAmount(0);
 
 		OptionMenuConstructor.constructAndApplyToScreen(this.container, this.screen, this, navigation);
 
-		if (this.searchModeActive) {
+		if (this.irisSearch$searchModeActive) {
 			List<BaseEntry> mutableEntries = new ArrayList<>(this.children());
-			SearchInputRow searchRow = new SearchInputRow(this.minecraft.font);
 
-			// Store the widget reference so our key intercepts can find it instantly
-			this.activeSearchField = searchRow.getEditBox();
+			// Call the detached standalone class
+			SearchInputRow searchRow = new SearchInputRow(this.minecraft.font, this, this.getRowWidthDimension(), this.getNavigation());
+			this.irisSearch$activeSearchField = searchRow.getEditBox();
 
 			if (!mutableEntries.isEmpty()) {
 				mutableEntries.add(1, searchRow);
@@ -96,8 +119,7 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 				this.addEntry(entry);
 			}
 		} else {
-			// Clear reference when search is closed
-			this.activeSearchField = null;
+			this.irisSearch$activeSearchField = null;
 		}
 	}
 
@@ -105,39 +127,36 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 	 * Exposes search state to the parent screen.
 	 */
 	public boolean isSearchModeActive() {
-		return this.searchModeActive;
+		return this.irisSearch$searchModeActive;
 	}
 
 	/**
 	 * Cleanly deactivates search mode and completely restores the UI layout.
 	 */
 	public void disableSearchMode() {
-		this.searchModeActive = false;
-		this.typedSearchQuery = "";
-		this.savedCursorPosition = 0;
-		this.activeSearchField = null;
+		this.irisSearch$searchModeActive = false;
+		this.irisSearch$typedSearchQuery = "";
+		this.irisSearch$savedCursorPosition = 0;
+		this.irisSearch$activeSearchField = null;
 
 		if (this.container != null) {
 			this.container.setSearchQuery(null);
 		}
-
-		// Refresh the list to show all original options again
 		this.rebuild();
 	}
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-		if (this.searchModeActive && this.activeSearchField != null) {
-			// Let the EditBox handle backspaces, typing navigation, etc.
-			return this.activeSearchField.keyPressed(event);
+		if (this.irisSearch$searchModeActive && this.irisSearch$activeSearchField != null) {
+			return this.irisSearch$activeSearchField.keyPressed(event);
 		}
 		return super.keyPressed(event);
 	}
 
 	@Override
 	public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
-		if (this.searchModeActive && this.activeSearchField != null) {
-			return this.activeSearchField.charTyped(event);
+		if (this.irisSearch$searchModeActive && this.irisSearch$activeSearchField != null) {
+			return this.irisSearch$activeSearchField.charTyped(event);
 		}
 		return super.charTyped(event);
 	}
@@ -320,7 +339,7 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			// OR if it's a subscreen that naturally wants a back button.
 			if (!isSubScreen || hasBackButton) {
 				Component buttonText = isSubScreen ? BACK_BUTTON_TEXT :
-					(ShaderPackOptionList.this.searchModeActive ? Component.literal("❌ Clear") : SEARCH_BUTTON_TEXT);
+					(ShaderPackOptionList.this.irisSearch$searchModeActive ? Component.literal("❌ Clear") : SEARCH_BUTTON_TEXT);
 
 				java.util.function.Function<IrisElementRow.TextButtonElement, Boolean> clickHandler =
 					isSubScreen ? this::backButtonClicked : this::searchButtonClicked;
@@ -441,11 +460,11 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			GuiUtil.playButtonClickSound();
 
 			// Toggle state
-			ShaderPackOptionList.this.searchModeActive = !ShaderPackOptionList.this.searchModeActive;
+			ShaderPackOptionList.this.irisSearch$searchModeActive = !ShaderPackOptionList.this.irisSearch$searchModeActive;
 
-			if (!ShaderPackOptionList.this.searchModeActive) {
+			if (!ShaderPackOptionList.this.irisSearch$searchModeActive) {
 				// Reset search state on clear
-				ShaderPackOptionList.this.typedSearchQuery = "";
+				ShaderPackOptionList.this.irisSearch$typedSearchQuery = "";
 				if (ShaderPackOptionList.this.container != null) {
 					ShaderPackOptionList.this.container.setSearchQuery("");
 				}
@@ -558,113 +577,6 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 				});
 
 			return true;
-		}
-	}
-
-	public class SearchInputRow extends BaseEntry {
-		private final net.minecraft.client.gui.components.EditBox editBox;
-
-		public SearchInputRow(Font font) {
-			super(ShaderPackOptionList.this.getNavigation());
-
-			int rowWidth = ShaderPackOptionList.this.getRowWidth();
-
-			this.editBox = new net.minecraft.client.gui.components.EditBox(
-				font, 0, 0, rowWidth - 20, 16, Component.literal("Search options...")
-			);
-
-			this.editBox.setValue(ShaderPackOptionList.this.typedSearchQuery);
-
-			// Set initial focus states
-			this.editBox.setFocused(true);
-			super.setFocused(true);
-
-			// Restore cursor position state safely
-			int targetCursor = Math.min(ShaderPackOptionList.this.savedCursorPosition, this.editBox.getValue().length());
-			this.editBox.setCursorPosition(targetCursor);
-
-			this.editBox.setResponder(text -> {
-				ShaderPackOptionList.this.typedSearchQuery = text;
-				ShaderPackOptionList.this.savedCursorPosition = this.editBox.getCursorPosition();
-
-				if (ShaderPackOptionList.this.container != null) {
-					ShaderPackOptionList.this.container.setSearchQuery(text);
-					ShaderPackOptionList.this.rebuild();
-				}
-			});
-		}
-
-		public net.minecraft.client.gui.components.EditBox getEditBox() {
-			return this.editBox;
-		}
-
-		// --- Core Focus Mapping Fixes ---
-
-		@Override
-		public void setFocused(boolean focused) {
-			super.setFocused(focused);
-			this.editBox.setFocused(focused);
-		}
-
-		@Override
-		public boolean isFocused() {
-			// Tell the parent selection list that this row is focused if its EditBox is focused
-			return this.editBox.isFocused();
-		}
-
-		@Override
-		public void extractContent(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, boolean isHovered, float tickDelta) {
-			int centerX = ShaderPackOptionList.this.getX() + (ShaderPackOptionList.this.getWidth() / 2);
-			int boxX = centerX - (this.editBox.getWidth() / 2);
-			int boxY = getContentY() + 3;
-
-			this.editBox.setX(boxX);
-			this.editBox.setY(boxY);
-
-			// Keeps input focus alive
-			if (ShaderPackOptionList.this.searchModeActive) {
-				this.editBox.setFocused(true);
-			}
-
-			// Draw the EditBox background, border, and active text
-			this.editBox.extractWidgetRenderState(guiGraphics, mouseX, mouseY, tickDelta);
-
-			// --- MANUAL HINT RENDERING FALLBACK ---
-			// If the user hasn't typed anything yet, force-render our placeholder string over the field
-			if (this.editBox.getValue().isEmpty()) {
-				// Shift right slightly to align beautifully inside the text box border padding
-				int hintX = boxX + 4;
-				int hintY = boxY + (this.editBox.getHeight() - 8) / 2;
-
-				// Uses a clean dark gray color (-8355712 is dark gray/same as vanilla suggestions)
-				guiGraphics.text(ShaderPackOptionList.this.minecraft.font, Component.literal("Search options..."), hintX, hintY, Color.GRAY.getRGB());
-			}
-		}
-
-		@Override
-		public List<? extends GuiEventListener> children() {
-			return ImmutableList.of(this.editBox);
-		}
-
-		@Override
-		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-			this.editBox.onClick(event, doubleClick);
-			return true;
-		}
-
-		@Override
-		public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-			return this.editBox.keyPressed(event) || super.keyPressed(event);
-		}
-
-		@Override
-		public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
-			return this.editBox.charTyped(event) || super.charTyped(event);
-		}
-
-		@Override
-		public List<? extends NarratableEntry> narratables() {
-			return ImmutableList.of(this.editBox);
 		}
 	}
 }

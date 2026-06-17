@@ -18,12 +18,14 @@ public class OptionMenuContainer {
 	public final Map<String, OptionMenuElementScreen> subScreens = new HashMap<>();
 
 	private final List<OptionMenuOptionElement> usedOptionElements = new ArrayList<>();
-	private final List<String> usedOptions = new ArrayList<>();
-	private final List<String> unusedOptions = new ArrayList<>();
+	private final List<String> usedOptions = new ArrayList<>(); // To be used when screens contain a "*" element
+	private final List<String> unusedOptions = new ArrayList<>(); // Used by screens with "*" element
 	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>();
 	private final ProfileSet profiles;
 
 	private final List<OptionMenuElement> originalMainElements = new ArrayList<>();
+	private static final String WHOLE_WORD_REGEX = "(?<=^|[^a-zA-Z0-9])%s(?=$|[^a-zA-Z0-9])";
+	private static final String STARTS_WITH_REGEX = "(?<=^|[^a-zA-Z0-9])%s";
 
 	public OptionMenuContainer(ShaderProperties shaderProperties, ShaderPackOptions shaderPackOptions, ProfileSet profiles) {
 		this.profiles = profiles;
@@ -92,70 +94,56 @@ public class OptionMenuContainer {
 
 
 	/**
-	 * Sets the active search string and dynamically rewrites the mainScreen elements list.
-	 * Pass null or an empty string to restore the original layout.
+	 * Sets the active search string and dynamically filters/re-orders the mainScreen options layout.
 	 */
 	public void setSearchQuery(String query) {
-		String currentSearchQuery ;
 		if (query == null || query.trim().isEmpty()) {
-			this.mainScreen.elements.clear();
-			this.mainScreen.elements.addAll(this.originalMainElements);
+			this.restoreOriginalLayout();
 			return;
 		}
 
-		currentSearchQuery = query.toLowerCase(java.util.Locale.ROOT);
-		List<OptionMenuOptionElement> allFlatOptions = this.getAllOptionsFlattened();
-		List<OptionMenuElement> filteredResults = new ArrayList<>();
+		String normalizedQuery = query.toLowerCase(java.util.Locale.ROOT).trim();
 
+		// 1. Fetch data through our external decoupled engine
+		List<OptionMenuOptionElement> allFlatOptions = ShaderSearchEngine.getAllOptionsFlattened(this.usedOptionElements);
+		List<ShaderSearchEngine.ScoredOptionElement> scoredResults = new ArrayList<>();
+
+		net.minecraft.locale.Language languageEngine = net.minecraft.locale.Language.getInstance();
+
+		// 2. Evaluate and grade all options via isolated utility method
 		for (OptionMenuOptionElement element : allFlatOptions) {
-			String idPart = element.optionId != null ? element.optionId.toLowerCase(java.util.Locale.ROOT) : "";
-			String readableName = getReadableNameOfElement(element);
-			String namePart = readableName != null ? readableName.toLowerCase(java.util.Locale.ROOT) : "";
-
-			String matchTarget = idPart + " " + namePart;
-
-			if (matchTarget.contains(currentSearchQuery)) {
-				filteredResults.add(element);
+			int scoreTier = ShaderSearchEngine.computeMatchTier(element, normalizedQuery, languageEngine);
+			if (scoreTier > 0) {
+				scoredResults.add(new ShaderSearchEngine.ScoredOptionElement(element, scoreTier));
 			}
 		}
 
-		this.mainScreen.elements.clear();
-		this.mainScreen.elements.addAll(filteredResults);
-	}
+		// 3. Sort results by our strict matching priority tiers
+		Collections.sort(scoredResults);
 
-	public List<OptionMenuOptionElement> getAllOptionsFlattened() {
-		List<OptionMenuOptionElement> flatList = new ArrayList<>();
-		List<String> seenOptionIds = new ArrayList<>();
-
-		for (OptionMenuOptionElement element : this.usedOptionElements) {
-			if (element == null) continue;
-			String id = element.optionId != null ? element.optionId : element.toString();
-
-			if (!seenOptionIds.contains(id)) {
-				seenOptionIds.add(id);
-				flatList.add(element);
-			}
-		}
-		return flatList;
+		// 4. Re-apply to active layout display
+		this.applyFilteredLayout(scoredResults);
 	}
 
 	/**
-	 * Resolves the localized user-facing name using safe translation methods
-	 * that do not trigger formatting string parsing exceptions.
+	 * Unpacks processed results back into the visible Iris screen layout element map track.
 	 */
-	private String getReadableNameOfElement(OptionMenuOptionElement element) {
-		if (element == null || element.optionId == null) {
-			return null;
+	private void applyFilteredLayout(List<ShaderSearchEngine.ScoredOptionElement> sortedElements) {
+		this.mainScreen.elements.clear();
+		for (ShaderSearchEngine.ScoredOptionElement scored : sortedElements) {
+			this.mainScreen.elements.add(scored.getElement());
 		}
+	}
 
-		String optionId = element.optionId;
-		String translationKey = "option." + optionId;
-		net.minecraft.locale.Language languageEngine = net.minecraft.locale.Language.getInstance();
+	/**
+	 * Completely rolls back layout alterations to re-establish the vanilla navigation map tracking.
+	 */
+	private void restoreOriginalLayout() {
+		this.mainScreen.elements.clear();
+		this.mainScreen.elements.addAll(this.originalMainElements);
+	}
 
-		if (languageEngine.has(translationKey)) {
-			return languageEngine.getOrDefault(translationKey);
-		}
-
-		return null;
+	private List<OptionMenuOptionElement> getAllOptionsFlattened() {
+		return ShaderSearchEngine.getAllOptionsFlattened(this.usedOptionElements);
 	}
 }
