@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import net.minecraft.locale.Language;
 
 /**
  * Isolated search processor utility to prevent Mixin bytecode bloat.
@@ -16,7 +15,7 @@ public class ShaderSearchEngine {
 	/**
 	 * Evaluates an individual option element using pure Regex priority matching.
 	 */
-	public static int computeMatchTier(OptionMenuOptionElement element, String query, Language languageEngine) {
+	public static int computeMatchTier(OptionMenuOptionElement element, String query) {
 		if (element == null || element.optionId == null) {
 			return 0;
 		}
@@ -30,10 +29,10 @@ public class ShaderSearchEngine {
 
 		// Gather lowercase text sources
 		String nameKey = "option." + element.optionId;
-		String readableName = languageEngine.has(nameKey) ? languageEngine.getOrDefault(nameKey).toLowerCase(Locale.ROOT) : "";
+		String readableName = getLowercaseTranslatedString(nameKey);
 		String rawId = element.optionId.toLowerCase(Locale.ROOT);
 		String commentKey = "option." + element.optionId + ".comment";
-		String commentText = languageEngine.has(commentKey) ? languageEngine.getOrDefault(commentKey).toLowerCase(Locale.ROOT) : "";
+		String commentText = getLowercaseTranslatedString(commentKey);
 
 		// =========================================================================
 		// PHASE 1: WHOLE WORD BOUNDARY MATCHES (Tiers 1 - 3)
@@ -57,6 +56,11 @@ public class ShaderSearchEngine {
 		if (!commentText.isEmpty() && commentText.contains(trimmedQuery)) return 9;
 
 		return 0; // No match found
+	}
+
+	private static String getLowercaseTranslatedString(String key) {
+		net.minecraft.locale.Language languageEngine = net.minecraft.locale.Language.getInstance();
+		return languageEngine.has(key) ? languageEngine.getOrDefault(key).toLowerCase(Locale.ROOT) : "";
 	}
 
 	/**

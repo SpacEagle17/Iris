@@ -106,11 +106,9 @@ public class OptionMenuContainer {
 		List<OptionMenuOptionElement> allFlatOptions = ShaderSearchEngine.getAllOptionsFlattened(this.usedOptionElements);
 		List<ShaderSearchEngine.ScoredOptionElement> scoredResults = new ArrayList<>();
 
-		net.minecraft.locale.Language languageEngine = net.minecraft.locale.Language.getInstance();
-
 		// 2. Evaluate and grade all options via isolated utility method
 		for (OptionMenuOptionElement element : allFlatOptions) {
-			int scoreTier = ShaderSearchEngine.computeMatchTier(element, normalizedQuery, languageEngine);
+			int scoreTier = ShaderSearchEngine.computeMatchTier(element, normalizedQuery);
 			if (scoreTier > 0) {
 				scoredResults.add(new ShaderSearchEngine.ScoredOptionElement(element, scoreTier));
 			}
