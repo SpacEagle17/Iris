@@ -18,6 +18,7 @@ import net.irisshaders.iris.uniforms.FrameUpdateNotifier;
 import net.irisshaders.iris.uniforms.transforms.SmoothedFloat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
@@ -111,6 +112,12 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 	}, notifier);
 	private OldImageButton showHideButton;
 
+	// The search box is a normal, long-lived screen widget -- not a list entry. It is created
+	// once per init() alongside shaderOptionList and merely shown/hidden/focused as search mode
+	// is toggled, so typing in it goes through Minecraft's ordinary widget focus chain exactly
+	// like any other vanilla EditBox.
+	private @Nullable EditBox searchBox;
+
 	public ShaderPackScreen(Screen parent) {
 		super(Component.translatable("options.iris.shaderPackSelection.title"));
 
@@ -144,6 +151,12 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 	public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
 		notifier.onNewFrame();
 		backgroundInit = 1.0f;
+
+		// Keep the search box's visibility/focus in sync with shaderOptionList's search state.
+		// This needs to run every frame (rather than only at the few call sites that toggle
+		// search mode) because HeaderEntry can also flip search mode off as a side effect of
+		// being constructed for a sub-screen, and there's no single call site to hook for that.
+		this.syncSearchBoxVisibility();
 
 		if (Minecraft.getInstance().hasControlDown() && InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_D)) {
 			Minecraft.getInstance().setScreen(new ConfirmScreen((option) -> {
@@ -228,6 +241,14 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean bl2) {
+
+		if (this.optionMenuOpen && this.searchBox != null && this.searchBox.isVisible()) {
+			if (this.searchBox.mouseClicked(event, bl2)) {
+				this.focusSearchBox(this.searchBox);
+				return true;
+			}
+		}
+
 		int widthValue = this.font.width("New update available!");
 		double x = event.x();
 		double y = event.y();
@@ -251,6 +272,7 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 
 		this.removeWidget(this.shaderPackList);
 		this.removeWidget(this.shaderOptionList);
+		this.removeWidget(this.searchBox);
 
 		this.shaderPackList = new ShaderPackSelectionList(this, this.minecraft, this.width, this.height, 32, this.height - 58 - 36, 0, this.width);
 
@@ -272,10 +294,16 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 		}
 
 		this.clearWidgets();
+		this.searchBox = null;
 
 		if (!this.guiHidden) {
 			if (optionMenuOpen && shaderOptionList != null) {
 				this.addRenderableWidget(shaderOptionList);
+
+				this.searchBox = createSearchBox();
+				if (this.searchBox != null) {
+					this.addRenderableWidget(this.searchBox);
+				}
 			} else {
 				this.addRenderableWidget(shaderPackList);
 			}
@@ -352,6 +380,135 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 		this.hoveredElementCommentTimer = 0;
 	}
 
+	/**
+	 * Builds the persistent search EditBox, seeded from shaderOptionList's currently saved
+	 * query/cursor (which will just be the defaults on a fresh ShaderPackOptionList, since that
+	 * object is itself recreated every init() -- this matches how search state already didn't
+	 * survive a full init() before this change, so there's no new loss of behavior here).
+	 *
+	 * This box is a pure overlay: it takes no list space when hidden, and when shown it is
+	 * drawn on top of the option list's header row, stopping short of the search/clear button
+	 * on the right so that button stays visible and clickable (Escape also always works as a
+	 * fallback way out of search mode regardless).
+	 */
+	private @Nullable EditBox createSearchBox() {
+		if (this.shaderOptionList == null) {
+			return null;
+		}
+
+		EditBox box = new EditBox(this.font, 0, 0, 10, 16, Component.literal("Search shader options"));
+		box.setMaxLength(64);
+		box.setBordered(true);
+		box.setHint(Component.literal("Search options...").withStyle(EditBox.SEARCH_HINT_STYLE));
+		positionSearchBox(box);
+
+		String savedQuery = this.shaderOptionList.getTypedSearchQuery();
+		box.setValue(savedQuery);
+		box.setCursorPosition(Math.min(this.shaderOptionList.getSavedCursorPosition(), savedQuery.length()));
+
+		box.setResponder(text -> {
+			if (this.shaderOptionList == null) {
+				return;
+			}
+
+			this.shaderOptionList.setTypedSearchQuery(text);
+			this.shaderOptionList.setSavedCursorPosition(box.getCursorPosition());
+			this.shaderOptionList.updateSearchQuery(text);
+		});
+
+		box.setVisible(this.shaderOptionList.isSearchModeActive());
+
+		if (box.isVisible()) {
+			focusSearchBox(box);
+		}
+
+		return box;
+	}
+
+	/**
+	 * Lays the search box directly over the option list's header row (same row the back/clear
+	 * button lives in), reserving a margin on the right so it never covers that button.
+	 */
+	private void positionSearchBox(EditBox box) {
+		if (this.shaderOptionList == null) {
+			return;
+		}
+
+		final int headerRowHeight = 24; // matches fixed item height
+		final int boxHeight = 16;
+
+		// Calculate the actual centered row bounds instead of using the full screen width
+		int rowWidth = this.shaderOptionList.getRowWidth();
+		int rowX = this.shaderOptionList.getX() + (this.shaderOptionList.getWidth() - rowWidth) / 2;
+		int listY = this.shaderOptionList.getY();
+
+		// Left margin clears the Back/Search/Clear slot; Right extends completely to the edge
+		final int leftMargin = 48;
+		final int rightMargin = 4;
+
+		int boxX = rowX + leftMargin;
+		int boxY = listY + ((headerRowHeight - boxHeight) / 2) - 2;
+		int boxWidth = Math.max(40, rowWidth - leftMargin - rightMargin);
+
+		box.setX(boxX);
+		box.setY(boxY);
+		box.setWidth(boxWidth);
+		box.setHeight(boxHeight);
+	}
+
+	/**
+	 * Properly focuses the search box: sets both the widget's own focus flag (used for its
+	 * cursor-blink rendering) AND tells the screen that this widget is the focused child, since
+	 * those are two separate things in Minecraft's GUI framework. Calling only setFocused(true)
+	 * on the widget -- without also updating the screen's own focused-child pointer -- leaves
+	 * keyboard input still routed wherever it was before, which is why typing wouldn't work
+	 * until the box was clicked manually.
+	 */
+	private void focusSearchBox(EditBox box) {
+		box.setFocused(true);
+		this.setFocused(box);
+	}
+
+	private void unfocusSearchBox(EditBox box) {
+		box.setFocused(false);
+
+		if (this.getFocused() == box) {
+			this.setFocused(null);
+		}
+	}
+
+	/**
+	 * Single sync point keeping the persistent search box's visibility/focus aligned with
+	 * shaderOptionList's search-mode flag, regardless of which code path changed that flag
+	 * (the header's search/clear button, the Escape key handler, onClose, or HeaderEntry
+	 * force-disabling search when a sub-screen opens).
+	 */
+	private void syncSearchBoxVisibility() {
+		if (this.searchBox == null || this.shaderOptionList == null) {
+			return;
+		}
+
+		boolean shouldBeActive = this.optionMenuOpen && this.shaderOptionList.isSearchModeActive();
+		if (shouldBeActive == this.searchBox.isVisible()) {
+			return;
+		}
+
+		if (shouldBeActive) {
+			// Becoming active: (re)seed the box from whatever query/cursor is currently saved,
+			// re-align it against the list's current bounds, then properly focus it.
+			String query = this.shaderOptionList.getTypedSearchQuery();
+			this.searchBox.setValue(query);
+			this.searchBox.setCursorPosition(Math.min(this.shaderOptionList.getSavedCursorPosition(), query.length()));
+			positionSearchBox(this.searchBox);
+
+			this.searchBox.setVisible(true);
+			focusSearchBox(this.searchBox);
+		} else {
+			this.searchBox.setVisible(false);
+			unfocusSearchBox(this.searchBox);
+		}
+	}
+
 	public void refreshForChangedPack() {
 		if (Iris.getCurrentPack().isPresent()) {
 			ShaderPack currentPack = Iris.getCurrentPack().get();
@@ -398,13 +555,29 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.isEscape()) {
 
+		if (this.shaderOptionList != null) {
 			// If the options list exists and search mode is active, hijack the escape key!
-			if (this.shaderOptionList != null && this.shaderOptionList.isSearchModeActive()) {
+			if (event.isEscape() && this.shaderOptionList.isSearchModeActive()) {
 				this.shaderOptionList.disableSearchModeAndRebuild();
 				return true;
 			}
+
+			if (event.hasControlDown() && event.key() == GLFW.GLFW_KEY_F) {
+				if (this.optionMenuOpen) {
+					GuiUtil.playButtonClickSound();
+					if (this.shaderOptionList.isSearchModeActive()) {
+						this.shaderOptionList.disableSearchModeAndRebuild();
+					} else {
+						this.shaderOptionList.enableSearchModeAndRebuild();
+					}
+					return true;
+				}
+			}
+		}
+
+
+		if (event.isEscape()) {
 
 			if (this.guiHidden) {
 				this.guiHidden = false;

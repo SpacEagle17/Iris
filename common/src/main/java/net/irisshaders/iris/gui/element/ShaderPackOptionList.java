@@ -46,18 +46,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public class ShaderPackOptionList extends IrisContainerObjectSelectionList<ShaderPackOptionList.BaseEntry> implements ShaderListSearchFieldAccessor {
+public class ShaderPackOptionList extends IrisContainerObjectSelectionList<ShaderPackOptionList.BaseEntry> {
 	private static final Identifier MENU_LIST_BACKGROUND = Identifier.withDefaultNamespace("textures/gui/menu_background.png");
 	private final List<AbstractElementWidget<?>> elementWidgets = new ArrayList<>();
 	private final ShaderPackScreen screen;
 	private final NavigationController navigation;
 	private OptionMenuContainer container;
 
-	// --- Add these search UI tracking fields ---
+	// --- Search state. This is intentionally just plain data: the actual EditBox lives on
+	// ShaderPackScreen now, not inside this list, so none of this needs to survive a rebuild()
+	// of list entries -- only a search toggle or a fresh screen init().
 	private boolean irisSearch$searchModeActive = false;
 	private String irisSearch$typedSearchQuery = "";
 	private int irisSearch$savedCursorPosition = 0;
-	private net.minecraft.client.gui.components.EditBox irisSearch$activeSearchField = null;
 
 	public ShaderPackOptionList(ShaderPackScreen screen, NavigationController navigation, ShaderPack pack, Minecraft client, int width, int height, int top, int bottom, int left, int right) {
 		super(client, width, bottom, top + 4, bottom, left, right, 24);
@@ -71,69 +72,52 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		this.container = pack.getMenuContainer();
 	}
 
-	// --- Interface Implementation ---
-	@Override public boolean irisSearch$isSearchModeActive() { return this.irisSearch$searchModeActive; }
-	@Override public void irisSearch$setSearchModeActive(boolean active) { this.irisSearch$searchModeActive = active; }
-	@Override public String irisSearch$getTypedSearchQuery() { return this.irisSearch$typedSearchQuery; }
-	@Override public void irisSearch$setTypedSearchQuery(String query) { this.irisSearch$typedSearchQuery = query; }
-	@Override public int irisSearch$getSavedCursorPosition() { return this.irisSearch$savedCursorPosition; }
-	@Override public void irisSearch$setSavedCursorPosition(int pos) { this.irisSearch$savedCursorPosition = pos; }
-	@Override public net.minecraft.client.gui.components.EditBox irisSearch$getActiveSearchField() { return this.irisSearch$activeSearchField; }
-	@Override public void irisSearch$setActiveSearchField(net.minecraft.client.gui.components.EditBox box) { this.irisSearch$activeSearchField = box; }
+	// --- Search state accessors, used by ShaderPackScreen's search EditBox and by HeaderEntry's
+	// search/clear toggle button (see HeaderEntry below, unchanged from before). ---
 
-	@Override
-	public void irisSearch$triggerContainerSearchUpdate(String query) {
-		if (this.container != null) {
-			this.container.setSearchQuery(query);
-			this.rebuild();
-		}
-	}
-
-	// Expose the getter layout dimensions your standalone row will need via reflection later
-	public int getRowWidthDimension() { return this.getRowWidth(); }
-	public int getXDimension() { return this.getX(); }
-	public int getWidthDimension() { return this.getWidth(); }
-
-	public void rebuild() {
-		this.clearEntries();
-		this.setScrollAmount(0);
-
-		OptionMenuConstructor.constructAndApplyToScreen(this.container, this.screen, this, navigation);
-
-		if (this.irisSearch$searchModeActive) {
-			List<BaseEntry> mutableEntries = new ArrayList<>(this.children());
-
-			// Call the detached standalone class
-			SearchInputRow searchRow = new SearchInputRow(this.minecraft.font, this, this.getRowWidthDimension(), this.getNavigation());
-			this.irisSearch$activeSearchField = searchRow.getEditBox();
-
-			if (!mutableEntries.isEmpty()) {
-				mutableEntries.add(1, searchRow);
-			} else {
-				mutableEntries.add(searchRow);
-			}
-
-			this.clearEntries();
-			for (BaseEntry entry : mutableEntries) {
-				this.addEntry(entry);
-			}
-		} else {
-			this.irisSearch$activeSearchField = null;
-		}
-	}
-
-	/**
-	 * Exposes search state to the parent screen.
-	 */
 	public boolean isSearchModeActive() {
 		return this.irisSearch$searchModeActive;
 	}
 
+	public String getTypedSearchQuery() {
+		return this.irisSearch$typedSearchQuery;
+	}
+
+	public void setTypedSearchQuery(String query) {
+		this.irisSearch$typedSearchQuery = query;
+	}
+
+	public int getSavedCursorPosition() {
+		return this.irisSearch$savedCursorPosition;
+	}
+
+	public void setSavedCursorPosition(int pos) {
+		this.irisSearch$savedCursorPosition = pos;
+	}
+
+	/**
+	 * Called by the screen-level search box's responder on every keystroke. Filters the
+	 * underlying option container and rebuilds just the list rows -- the EditBox itself is
+	 * never touched or recreated by this.
+	 */
+	public void updateSearchQuery(String query) {
+		this.irisSearch$typedSearchQuery = query;
+
+		if (this.container != null) {
+			this.container.setSearchQuery(query);
+		}
+
+		this.rebuild();
+	}
+
+	/**
+	 * Resets all search state and clears any active filter, without rebuilding entries.
+	 * Safe to call mid-rebuild (e.g. from HeaderEntry's constructor when a sub-screen is opened).
+	 */
 	public void disableSearchMode() {
 		this.irisSearch$searchModeActive = false;
 		this.irisSearch$typedSearchQuery = "";
 		this.irisSearch$savedCursorPosition = 0;
-		this.irisSearch$activeSearchField = null;
 
 		if (this.container != null) {
 			this.container.setSearchQuery(null);
@@ -148,20 +132,15 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		this.rebuild();
 	}
 
-	@Override
-	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-		if (this.irisSearch$searchModeActive && this.irisSearch$activeSearchField != null) {
-			return this.irisSearch$activeSearchField.keyPressed(event);
-		}
-		return super.keyPressed(event);
+	public void enableSearchModeAndRebuild() {
+		this.irisSearch$searchModeActive = true;
+		this.rebuild();
 	}
 
-	@Override
-	public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
-		if (this.irisSearch$searchModeActive && this.irisSearch$activeSearchField != null) {
-			return this.irisSearch$activeSearchField.charTyped(event);
-		}
-		return super.charTyped(event);
+	public void rebuild() {
+		this.clearEntries();
+		this.setScrollAmount(0);
+		OptionMenuConstructor.constructAndApplyToScreen(this.container, this.screen, this, navigation);
 	}
 
 	public void refresh() {
@@ -310,7 +289,10 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 	public class HeaderEntry extends BaseEntry {
 		public static final Component BACK_BUTTON_TEXT = Component.literal("< ").append(Component.translatable("options.iris.back").withStyle(ChatFormatting.ITALIC));
-		public static final Component SEARCH_BUTTON_TEXT = Component.literal("🔍 Search");
+		// NOTE: intentionally Component.literal, not Component.translatable -- this is a
+		// deliberate design choice to keep this button untranslated.
+		public static final Component SEARCH_BUTTON_TEXT = Component.literal("Search");
+		public static final Component CLEAR_BUTTON_TEXT = Component.literal("Clear");
 		public static final MutableComponent RESET_BUTTON_TEXT_INACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.GRAY);
 		public static final MutableComponent RESET_BUTTON_TEXT_ACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.YELLOW);
 
@@ -346,7 +328,7 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			// OR if it's a subscreen that naturally wants a back button.
 			if (!isSubScreen || hasBackButton) {
 				Component buttonText = isSubScreen ? BACK_BUTTON_TEXT :
-					(ShaderPackOptionList.this.irisSearch$searchModeActive ? Component.literal("❌ Clear") : SEARCH_BUTTON_TEXT);
+					(ShaderPackOptionList.this.irisSearch$searchModeActive ? CLEAR_BUTTON_TEXT : SEARCH_BUTTON_TEXT);
 
 				java.util.function.Function<IrisElementRow.TextButtonElement, Boolean> clickHandler =
 					isSubScreen ? this::backButtonClicked : this::searchButtonClicked;
