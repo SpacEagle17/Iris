@@ -18,9 +18,9 @@ public class OptionMenuContainer {
 	public final Map<String, OptionMenuElementScreen> subScreens = new HashMap<>();
 
 	private final List<OptionMenuOptionElement> usedOptionElements = new ArrayList<>();
-	private final List<String> usedOptions = new ArrayList<>(); // To be used when screens contain a "*" element
-	private final List<String> unusedOptions = new ArrayList<>(); // Used by screens with "*" element
-	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>();
+	private final List<String> usedOptions = new ArrayList<>();
+	private final List<String> unusedOptions = new ArrayList<>(); // To be used when screens contain a "*" element
+	private final Map<List<OptionMenuElement>, Integer> unusedOptionDumpQueue = new HashMap<>(); // Used by screens with "*" element
 	private final ProfileSet profiles;
 
 	private final List<OptionMenuElement> originalMainElements = new ArrayList<>();
