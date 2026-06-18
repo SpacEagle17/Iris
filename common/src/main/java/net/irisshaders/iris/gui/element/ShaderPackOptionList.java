@@ -291,8 +291,8 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		public static final Component BACK_BUTTON_TEXT = Component.literal("< ").append(Component.translatable("options.iris.back").withStyle(ChatFormatting.ITALIC));
 		// NOTE: intentionally Component.literal, not Component.translatable -- this is a
 		// deliberate design choice to keep this button untranslated.
-		public static final Component SEARCH_BUTTON_TEXT = Component.literal("Search");
-		public static final Component CLEAR_BUTTON_TEXT = Component.literal("Clear");
+		public static final Component SEARCH_BUTTON_TEXT = Component.literal("\uD83D\uDD0D Search");
+		public static final Component CLEAR_BUTTON_TEXT = Component.literal("❌ Clear");
 		public static final MutableComponent RESET_BUTTON_TEXT_INACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.GRAY);
 		public static final MutableComponent RESET_BUTTON_TEXT_ACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.YELLOW);
 
