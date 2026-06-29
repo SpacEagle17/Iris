@@ -39,6 +39,8 @@ bin/
 run/
 /logs/latest.log
 
+/IrisSearch
+
 # macOS
 
 .DS_Store

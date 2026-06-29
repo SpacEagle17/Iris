@@ -5,6 +5,8 @@ import net.irisshaders.iris.gui.GuiUtil;
 import net.irisshaders.iris.gui.NavigationController;
 import net.irisshaders.iris.gui.screen.ShaderPackScreen;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElement;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
+import net.irisshaders.iris.shaderpack.option.menu.ShaderSearchEngine;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -162,7 +164,42 @@ public abstract class BaseOptionElementWidget<T extends OptionMenuElement> exten
 
 	@Override
 	public Optional<Component> getCommentBody() {
-		return Optional.ofNullable(getCommentKey()).map(key -> I18n.exists(key) ? Component.translatable(key) : null);
+		Optional<Component> base = Optional.ofNullable(getCommentKey())
+			.map(key -> I18n.exists(key) ? Component.translatable(key) : null);
+
+		if (this.screen == null || !this.screen.isOptionMenuSearchActive()) {
+			return base;
+		}
+
+		String pathLabel = buildTranslatedPath();
+		if (pathLabel == null) {
+			return base;
+		}
+
+		// §l = bold, §o = italic, §r = reset — embedded as raw codes so they survive
+		// the getString() call in ShaderPackScreen's comment-rendering pipeline.
+		MutableComponent result = Component.literal("§l§o" + pathLabel + "§r");
+
+		if (base.isPresent()) {
+			result = result.append(Component.literal("\n")).append(base.get());
+		}
+
+		return Optional.of(result);
+	}
+
+	private @Nullable String buildTranslatedPath() {
+		if (!(this.element instanceof OptionMenuOptionElement optEl)) return null;
+		String rawPath = optEl.container.getOptionPath(optEl.optionId);
+		String[] segments = rawPath.split("/");
+		StringBuilder display = new StringBuilder();
+		for (String segment : segments) {
+			if ("root".equals(segment)) continue;
+			String translated = ShaderSearchEngine.getDisplaySettingsName(segment).replaceAll("\\s+>", "");
+			String label = translated.isEmpty() ? segment : translated;
+			if (!display.isEmpty()) display.append(" > ");
+			display.append(label);
+		}
+		return !display.isEmpty() ? display.toString() : null;
 	}
 
 	@Override

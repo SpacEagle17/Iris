@@ -396,10 +396,10 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 			return null;
 		}
 
-		EditBox box = new EditBox(this.font, 0, 0, 10, 16, Component.literal("Search shader options"));
+		EditBox box = new EditBox(this.font, 0, 0, 10, 16, Component.translatable("options.iris.search.button"));
 		box.setMaxLength(64);
 		box.setBordered(true);
-		box.setHint(Component.literal("Search options...").withStyle(EditBox.SEARCH_HINT_STYLE));
+		box.setHint(Component.translatable("options.iris.search.hint").withStyle(EditBox.SEARCH_HINT_STYLE));
 		positionSearchBox(box);
 
 		String savedQuery = this.shaderOptionList.getTypedSearchQuery();
@@ -428,26 +428,40 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 	/**
 	 * Lays the search box directly over the option list's header row (same row the back/clear
 	 * button lives in), reserving a margin on the right so it never covers that button.
+	 *
+	 * When the header entry has published its render-time bounds via
+	 * {@link ShaderPackOptionList#publishHeaderRowBounds}, those are used for pixel-perfect
+	 * alignment. Otherwise we fall back to estimating the row position from list bounds.
 	 */
 	private void positionSearchBox(EditBox box) {
 		if (this.shaderOptionList == null) {
 			return;
 		}
 
-		final int headerRowHeight = 24; // matches fixed item height
 		final int boxHeight = 16;
+		int rowX, rowY, rowWidth, rowHeight;
 
-		// Calculate the actual centered row bounds instead of using the full screen width
-		int rowWidth = this.shaderOptionList.getRowWidth();
-		int rowX = this.shaderOptionList.getX() + (this.shaderOptionList.getWidth() - rowWidth) / 2;
-		int listY = this.shaderOptionList.getY();
+		if (this.shaderOptionList.hasHeaderRowBounds()) {
+			rowX      = this.shaderOptionList.getHeaderRowX();
+			rowY      = this.shaderOptionList.getHeaderRowY();
+			rowWidth  = this.shaderOptionList.getHeaderRowWidth();
+			rowHeight = this.shaderOptionList.getHeaderRowHeight();
+		} else {
+			rowWidth = this.shaderOptionList.getRowWidth();
+			rowX     = this.shaderOptionList.getX() + (this.shaderOptionList.getWidth() - rowWidth) / 2;
+			rowY     = this.shaderOptionList.getY();
+			rowHeight = 24;
+		}
 
-		// Left margin clears the Back/Search/Clear slot; Right extends completely to the edge
-		final int leftMargin = 48;
-		final int rightMargin = 4;
+		int leftMargin = this.shaderOptionList.getReservedLeftWidth();
+		final int rightMargin = 2;
 
-		int boxX = rowX + leftMargin;
-		int boxY = listY + ((headerRowHeight - boxHeight) / 2) - 2;
+		// When using the live getter-based bounds, pull the box up 4px to sit inside the row.
+		int verticalOffset = this.shaderOptionList.hasHeaderRowBounds()
+				&& this.shaderOptionList.headerRowUsesGetterShape() ? 4 : 2;
+
+		int boxX     = rowX + leftMargin;
+		int boxY     = rowY + ((rowHeight - boxHeight) / 2) - verticalOffset;
 		int boxWidth = Math.max(40, rowWidth - leftMargin - rightMargin);
 
 		box.setX(boxX);
@@ -489,23 +503,33 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 		}
 
 		boolean shouldBeActive = this.optionMenuOpen && this.shaderOptionList.isSearchModeActive();
-		if (shouldBeActive == this.searchBox.isVisible()) {
-			return;
+		boolean currentlyVisible = this.searchBox.isVisible();
+
+		if (shouldBeActive != currentlyVisible) {
+			if (shouldBeActive) {
+				// Becoming active: (re)seed the box from whatever query/cursor is currently saved,
+				// re-align it against the list's current bounds, then properly focus it.
+				String query = this.shaderOptionList.getTypedSearchQuery();
+				this.searchBox.setValue(query);
+				this.searchBox.setCursorPosition(Math.min(this.shaderOptionList.getSavedCursorPosition(), query.length()));
+				positionSearchBox(this.searchBox);
+
+				this.searchBox.setVisible(true);
+				focusSearchBox(this.searchBox);
+			} else {
+				this.searchBox.setVisible(false);
+				unfocusSearchBox(this.searchBox);
+			}
 		}
 
+		// Scroll clipping runs every frame while active: move the box off-screen when the list
+		// is scrolled so it doesn't float above content, and reposition it when scroll returns.
 		if (shouldBeActive) {
-			// Becoming active: (re)seed the box from whatever query/cursor is currently saved,
-			// re-align it against the list's current bounds, then properly focus it.
-			String query = this.shaderOptionList.getTypedSearchQuery();
-			this.searchBox.setValue(query);
-			this.searchBox.setCursorPosition(Math.min(this.shaderOptionList.getSavedCursorPosition(), query.length()));
-			positionSearchBox(this.searchBox);
-
-			this.searchBox.setVisible(true);
-			focusSearchBox(this.searchBox);
-		} else {
-			this.searchBox.setVisible(false);
-			unfocusSearchBox(this.searchBox);
+			if (this.shaderOptionList.getScrollAmount() > 0.5) {
+				this.searchBox.setY(-10000);
+			} else {
+				positionSearchBox(this.searchBox);
+			}
 		}
 	}
 
@@ -564,7 +588,7 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 			}
 
 			if (event.hasControlDown() && event.key() == GLFW.GLFW_KEY_F) {
-				if (this.optionMenuOpen) {
+				if (this.optionMenuOpen && !this.shaderOptionList.isOnSubScreen()) {
 					GuiUtil.playButtonClickSound();
 					if (this.shaderOptionList.isSearchModeActive()) {
 						this.shaderOptionList.disableSearchModeAndRebuild();
@@ -865,6 +889,11 @@ public class ShaderPackScreen extends Screen implements HudHideable {
 			this.hoveredElementCommentBody.clear();
 			this.hoveredElementCommentTimer = 0;
 		}
+	}
+
+	/** Returns true when the option menu is open and the user has active a search query. */
+	public boolean isOptionMenuSearchActive() {
+		return this.optionMenuOpen && this.shaderOptionList != null && this.shaderOptionList.isSearchModeActive();
 	}
 
 	public boolean isDisplayingComment() {

@@ -45,6 +45,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Function;
 
 public class ShaderPackOptionList extends IrisContainerObjectSelectionList<ShaderPackOptionList.BaseEntry> {
 	private static final Identifier MENU_LIST_BACKGROUND = Identifier.withDefaultNamespace("textures/gui/menu_background.png");
@@ -53,12 +54,19 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 	private final NavigationController navigation;
 	private OptionMenuContainer container;
 
-	// --- Search state. This is intentionally just plain data: the actual EditBox lives on
-	// ShaderPackScreen now, not inside this list, so none of this needs to survive a rebuild()
-	// of list entries -- only a search toggle or a fresh screen init().
-	private boolean irisSearch$searchModeActive = false;
-	private String irisSearch$typedSearchQuery = "";
-	private int irisSearch$savedCursorPosition = 0;
+	// --- Search state ---
+	private boolean searchModeActive = false;
+	private String typedSearchQuery = "";
+	private int savedCursorPosition = 0;
+
+	// --- Header row bounds (published by HeaderEntry every frame so ShaderPackScreen
+	//     can position the EditBox overlay exactly over the header row) ---
+	private boolean headerBoundsValid = false;
+	private int headerX, headerY, headerWidth, headerHeight;
+	private boolean headerUsesGetterShape = false;
+
+	// --- Space (px) reserved on the left of the header row for the search/clear button ---
+	private int reservedLeftWidth = 48;
 
 	public ShaderPackOptionList(ShaderPackScreen screen, NavigationController navigation, ShaderPack pack, Minecraft client, int width, int height, int top, int bottom, int left, int right) {
 		super(client, width, bottom, top + 4, bottom, left, right, 24);
@@ -72,70 +80,91 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		this.container = pack.getMenuContainer();
 	}
 
-	// --- Search state accessors, used by ShaderPackScreen's search EditBox and by HeaderEntry's
-	// search/clear toggle button (see HeaderEntry below, unchanged from before). ---
+	// --- Search state accessors ---
 
 	public boolean isSearchModeActive() {
-		return this.irisSearch$searchModeActive;
+		return searchModeActive;
 	}
 
 	public String getTypedSearchQuery() {
-		return this.irisSearch$typedSearchQuery;
+		return typedSearchQuery;
 	}
 
 	public void setTypedSearchQuery(String query) {
-		this.irisSearch$typedSearchQuery = query;
+		typedSearchQuery = query != null ? query : "";
 	}
 
 	public int getSavedCursorPosition() {
-		return this.irisSearch$savedCursorPosition;
+		return savedCursorPosition;
 	}
 
 	public void setSavedCursorPosition(int pos) {
-		this.irisSearch$savedCursorPosition = pos;
+		savedCursorPosition = Math.max(0, pos);
 	}
 
-	/**
-	 * Called by the screen-level search box's responder on every keystroke. Filters the
-	 * underlying option container and rebuilds just the list rows -- the EditBox itself is
-	 * never touched or recreated by this.
-	 */
+	/** Applies {@code query} to the option container and rebuilds the list rows. */
 	public void updateSearchQuery(String query) {
-		this.irisSearch$typedSearchQuery = query;
-
+		typedSearchQuery = query != null ? query : "";
 		if (this.container != null) {
 			this.container.setSearchQuery(query);
 		}
-
 		this.rebuild();
 	}
 
-	/**
-	 * Resets all search state and clears any active filter, without rebuilding entries.
-	 * Safe to call mid-rebuild (e.g. from HeaderEntry's constructor when a sub-screen is opened).
-	 */
+	/** Resets all search state and clears the active filter without rebuilding entries. */
 	public void disableSearchMode() {
-		this.irisSearch$searchModeActive = false;
-		this.irisSearch$typedSearchQuery = "";
-		this.irisSearch$savedCursorPosition = 0;
-
+		searchModeActive = false;
+		typedSearchQuery = "";
+		savedCursorPosition = 0;
 		if (this.container != null) {
 			this.container.setSearchQuery(null);
 		}
 	}
 
-	/**
-	 * Cleanly deactivates search mode and completely restores the UI layout.
-	 */
 	public void disableSearchModeAndRebuild() {
 		disableSearchMode();
 		this.rebuild();
 	}
 
 	public void enableSearchModeAndRebuild() {
-		this.irisSearch$searchModeActive = true;
+		searchModeActive = true;
 		this.rebuild();
 	}
+
+	/** True when the navigation stack is non-empty (i.e. a sub-screen is open). */
+	public boolean isOnSubScreen() {
+		return navigation != null && navigation.getCurrentScreen() != null;
+	}
+
+	// --- Header row bounds (written by HeaderEntry, read by ShaderPackScreen) ---
+
+	public void publishHeaderRowBounds(int x, int y, int width, int height, boolean usesGetterShape) {
+		headerX = x;
+		headerY = y;
+		headerWidth = width;
+		headerHeight = height;
+		headerUsesGetterShape = usesGetterShape;
+		headerBoundsValid = true;
+	}
+
+	public boolean hasHeaderRowBounds()   { return headerBoundsValid; }
+	public int    getHeaderRowX()         { return headerX; }
+	public int    getHeaderRowY()         { return headerY; }
+	public int    getHeaderRowWidth()     { return headerWidth; }
+	public int    getHeaderRowHeight()    { return headerHeight; }
+	public boolean headerRowUsesGetterShape() { return headerUsesGetterShape; }
+
+	// --- Reserved left-margin width (set by HeaderEntry, read by ShaderPackScreen) ---
+
+	public int  getReservedLeftWidth()        { return reservedLeftWidth; }
+	public void setReservedLeftWidth(int w)   { reservedLeftWidth = Math.max(0, w); }
+
+	/** Exposes scroll amount so ShaderPackScreen can apply scroll-based clipping to the search box. */
+	public double getScrollAmount() {
+		return this.scrollAmount();
+	}
+
+	// --- List construction ---
 
 	public void rebuild() {
 		this.clearEntries();
@@ -197,7 +226,7 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 			if (row.size() >= columns) {
 				this.addEntry(new ElementRowEntry(screen, this.navigation, row));
-				row = new ArrayList<>(); // Clearing the list would affect the row entry created above
+				row = new ArrayList<>();
 			}
 		}
 
@@ -205,7 +234,6 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			while (row.size() < columns) {
 				row.add(AbstractElementWidget.EMPTY);
 			}
-
 			this.addEntry(new ElementRowEntry(screen, this.navigation, row));
 		}
 	}
@@ -213,6 +241,10 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 	public NavigationController getNavigation() {
 		return navigation;
 	}
+
+	// -------------------------------------------------------------------------
+	// Entry types
+	// -------------------------------------------------------------------------
 
 	public abstract static class BaseEntry extends ContainerObjectSelectionList.Entry<BaseEntry> {
 		protected final NavigationController navigation;
@@ -231,7 +263,6 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 		public ElementRowEntry(ShaderPackScreen screen, NavigationController navigation, List<AbstractElementWidget<?>> widgets) {
 			super(navigation);
-
 			this.screen = screen;
 			this.widgets = widgets;
 		}
@@ -241,12 +272,9 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			this.cachedWidth = getContentWidth();
 			this.cachedPosX = getContentX();
 
-			// The amount of space widgets will occupy, excluding margins. Will be divided up between widgets.
 			int totalWidthWithoutMargins = getContentWidth() - (2 * (widgets.size() - 1));
+			totalWidthWithoutMargins -= 3;
 
-			totalWidthWithoutMargins -= 3; // Centers it for some reason
-
-			// Width of a single widget
 			float singleWidgetWidth = (float) totalWidthWithoutMargins / widgets.size();
 
 			for (int i = 0; i < widgets.size(); i++) {
@@ -262,7 +290,6 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 		public int getHoveredWidget(int mouseX) {
 			float positionAcrossWidget = ((float) Mth.clamp(mouseX - cachedPosX, 0, cachedWidth)) / cachedWidth;
-
 			return Mth.clamp((int) Math.floor(widgets.size() * positionAcrossWidget), 0, widgets.size() - 1);
 		}
 
@@ -289,10 +316,8 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 	public class HeaderEntry extends BaseEntry {
 		public static final Component BACK_BUTTON_TEXT = Component.literal("< ").append(Component.translatable("options.iris.back").withStyle(ChatFormatting.ITALIC));
-		// NOTE: intentionally Component.literal, not Component.translatable -- this is a
-		// deliberate design choice to keep this button untranslated.
-		public static final Component SEARCH_BUTTON_TEXT = Component.literal("\uD83D\uDD0D Search");
-		public static final Component CLEAR_BUTTON_TEXT = Component.literal("❌ Clear");
+		public static final Component SEARCH_BUTTON_TEXT = Component.literal("🔍 ").append(Component.translatable("options.iris.search.button"));
+		public static final Component CLEAR_BUTTON_TEXT  = Component.literal("❌ ").append(Component.translatable("options.iris.clear.button"));
 		public static final MutableComponent RESET_BUTTON_TEXT_INACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.GRAY);
 		public static final MutableComponent RESET_BUTTON_TEXT_ACTIVE = Component.translatable("options.iris.reset").withStyle(ChatFormatting.YELLOW);
 
@@ -303,8 +328,12 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		public static final MutableComponent EXPORT_TOOLTIP = Component.translatable("options.iris.exportSettings.tooltip")
 			.withStyle(style -> style.withColor(TextColor.fromRgb(0xFFfc7d3d)));
 
+		private static final Component SEARCH_TOOLTIP = Component.translatable("options.iris.search.tooltip");
+		private static final Component CLEAR_TOOLTIP  = Component.translatable("options.iris.clear.tooltip");
+
 		private static final int MIN_SIDE_BUTTON_WIDTH = 42;
 		private static final int BUTTON_HEIGHT = 16;
+		private static final int SEARCH_BOX_GAP = 3;
 
 		private final ShaderPackScreen screen;
 		private final @Nullable IrisElementRow backButton;
@@ -314,39 +343,58 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 		private final IrisElementRow.IconButtonElement exportButton;
 		private final Component text;
 
+		// Set only when this entry is the main-screen header (not a sub-screen back button).
+		private final @Nullable IrisElementRow.TextButtonElement searchToggleButton;
+		private final @Nullable Component searchToggleTooltip;
+
 		public HeaderEntry(ShaderPackScreen screen, NavigationController navigation, Component text, boolean hasBackButton) {
 			super(navigation);
 
 			// Determine if we are on a subscreen or the main menu screen
 			boolean isSubScreen = navigation.getCurrentScreen() != null;
 
-			if (isSubScreen && irisSearch$searchModeActive){
+			// Opening a sub-screen while search is active: force-disable search so the sub-screen
+			// renders normally and the search box disappears.
+			if (isSubScreen && searchModeActive) {
 				disableSearchMode();
 			}
 
-			// FORCE the button slot to exist if we are on the main screen (for Search)
-			// OR if it's a subscreen that naturally wants a back button.
+			IrisElementRow.TextButtonElement toggleButtonRef = null;
+			Component toggleTooltipRef = null;
+
 			if (!isSubScreen || hasBackButton) {
-				Component buttonText = isSubScreen ? BACK_BUTTON_TEXT :
-					(ShaderPackOptionList.this.irisSearch$searchModeActive ? CLEAR_BUTTON_TEXT : SEARCH_BUTTON_TEXT);
+				Component buttonText;
+				Function<IrisElementRow.TextButtonElement, Boolean> clickHandler;
 
-				java.util.function.Function<IrisElementRow.TextButtonElement, Boolean> clickHandler =
-					isSubScreen ? this::backButtonClicked : this::searchButtonClicked;
+				if (isSubScreen) {
+					buttonText = BACK_BUTTON_TEXT;
+					clickHandler = this::backButtonClicked;
+				} else {
+					buttonText = searchModeActive ? CLEAR_BUTTON_TEXT : SEARCH_BUTTON_TEXT;
+					clickHandler = this::searchButtonClicked;
+				}
 
-				this.backButton = new IrisElementRow().add(
-					new IrisElementRow.TextButtonElement(buttonText, clickHandler),
-					Math.max(MIN_SIDE_BUTTON_WIDTH, Minecraft.getInstance().font.width(buttonText) + 8)
-				);
+				IrisElementRow.TextButtonElement buttonElement = new IrisElementRow.TextButtonElement(buttonText, clickHandler);
+				int buttonWidth = Math.max(MIN_SIDE_BUTTON_WIDTH, Minecraft.getInstance().font.width(buttonText) + 8);
+
+				if (!isSubScreen) {
+					toggleButtonRef = buttonElement;
+					toggleTooltipRef = searchModeActive ? CLEAR_TOOLTIP : SEARCH_TOOLTIP;
+					// Reserve space so the search box starts after the button + a small gap.
+					ShaderPackOptionList.this.setReservedLeftWidth(buttonWidth + SEARCH_BOX_GAP);
+				}
+
+				this.backButton = new IrisElementRow().add(buttonElement, buttonWidth);
 			} else {
 				this.backButton = null;
 			}
 
-			this.resetButton = new IrisElementRow.TextButtonElement(
-				RESET_BUTTON_TEXT_INACTIVE, this::resetButtonClicked);
-			this.importButton = new IrisElementRow.IconButtonElement(
-				GuiUtil.Icon.IMPORT, GuiUtil.Icon.IMPORT_COLORED, this::importSettingsButtonClicked);
-			this.exportButton = new IrisElementRow.IconButtonElement(
-				GuiUtil.Icon.EXPORT, GuiUtil.Icon.EXPORT_COLORED, this::exportSettingsButtonClicked);
+			this.searchToggleButton  = toggleButtonRef;
+			this.searchToggleTooltip = toggleTooltipRef;
+
+			this.resetButton = new IrisElementRow.TextButtonElement(RESET_BUTTON_TEXT_INACTIVE, this::resetButtonClicked);
+			this.importButton = new IrisElementRow.IconButtonElement(GuiUtil.Icon.IMPORT, GuiUtil.Icon.IMPORT_COLORED, this::importSettingsButtonClicked);
+			this.exportButton = new IrisElementRow.IconButtonElement(GuiUtil.Icon.EXPORT, GuiUtil.Icon.EXPORT_COLORED, this::exportSettingsButtonClicked);
 
 			this.utilityButtons
 				.add(this.importButton, 15)
@@ -364,13 +412,34 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			int y = getY();
 			int entryWidth = getWidth();
 			int entryHeight = getHeight();
+
+			// Publish render-time bounds every frame so ShaderPackScreen can align the search box.
+			ShaderPackOptionList.this.publishHeaderRowBounds(x, y, entryWidth, entryHeight, true);
+
+			// Divider line — always drawn.
 			guiGraphics.fill(x - 3, (y + entryHeight) - 2, x + entryWidth, (y + entryHeight) - 1, 0x66BEBEBE);
 
 			Font font = Minecraft.getInstance().font;
 
-			// Draw header text
-			// TODO
-			guiGraphics.textRenderer().acceptScrolling(text, x + (int) (entryWidth * 0.5), x + 5, ((x + entryWidth) - 10) - utilityButtons.getWidth(), y + 5, y + 15);
+			// During search mode on the main screen: show only the clear button and its tooltip.
+			if (searchModeActive && searchToggleButton != null) {
+				GuiUtil.bindIrisWidgetsTexture();
+				if (this.backButton != null) {
+					backButton.render(guiGraphics, x, y, BUTTON_HEIGHT, mouseX, mouseY, tickDelta, isHovered);
+				}
+				queueSearchToggleTooltip(guiGraphics, font, x, y);
+				return;
+			}
+
+			// Normal render: title text with left bound adjusted past the back/search button.
+			int backButtonWidth = this.backButton != null ? this.backButton.getWidth() : 0;
+			guiGraphics.textRenderer().acceptScrolling(
+				text,
+				x + (int) (entryWidth * 0.5),
+				x + 5 + backButtonWidth,
+				((x + entryWidth) - 10) - utilityButtons.getWidth(),
+				y + 5, y + 15
+			);
 
 			GuiUtil.bindIrisWidgetsTexture();
 
@@ -400,6 +469,17 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 			if (this.exportButton.isHovered() || this.exportButton.isFocused()) {
 				queueBottomRightAnchoredTooltip(guiGraphics, this.exportButton.getRectangle().getBoundInDirection(ScreenDirection.RIGHT), this.exportButton.getRectangle().position().y(), font, EXPORT_TOOLTIP);
 			}
+
+			// Tooltip for the search toggle button (shown even when search is not active).
+			queueSearchToggleTooltip(guiGraphics, font, x, y);
+		}
+
+		private void queueSearchToggleTooltip(GuiGraphicsExtractor guiGraphics, Font font, int x, int y) {
+			if (searchToggleButton == null || searchToggleTooltip == null) return;
+			if (!searchToggleButton.isHovered() && !searchToggleButton.isFocused()) return;
+			ShaderPackScreen.TOP_LAYER_RENDER_QUEUE.add(() ->
+				GuiUtil.drawTextPanel(font, guiGraphics, searchToggleTooltip, x, y - 16)
+			);
 		}
 
 		private void queueBottomRightAnchoredTooltip(GuiGraphicsExtractor guiGraphics, int x, int y, Font font, Component text) {
@@ -411,21 +491,31 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 		@Override
 		public List<? extends GuiEventListener> children() {
-			if (backButton != null)
+			// During search only the toggle button is interactive; hide utility buttons.
+			if (searchModeActive) {
+				return backButton != null ? ImmutableList.copyOf(backButton.children()) : ImmutableList.of();
+			}
+			if (backButton != null) {
 				return ImmutableList.copyOf(Iterables.concat(utilityButtons.children(), backButton.children()));
+			}
 			return ImmutableList.copyOf(utilityButtons.children());
 		}
 
 		@Override
 		public boolean mouseClicked(MouseButtonEvent event, boolean bl2) {
+			if (searchModeActive) {
+				return backButton != null && backButton.mouseClicked(event, bl2);
+			}
 			boolean backButtonResult = backButton != null && backButton.mouseClicked(event, bl2);
 			boolean utilButtonResult = utilityButtons.mouseClicked(event, bl2);
-
 			return backButtonResult || utilButtonResult;
 		}
 
 		@Override
 		public boolean keyPressed(KeyEvent event) {
+			if (searchModeActive) {
+				return backButton != null && backButton.keyPressed(event);
+			}
 			if (backButton != null && backButton.keyPressed(event)) {
 				return true;
 			}
@@ -447,20 +537,11 @@ public class ShaderPackOptionList extends IrisContainerObjectSelectionList<Shade
 
 		private boolean searchButtonClicked(IrisElementRow.TextButtonElement button) {
 			GuiUtil.playButtonClickSound();
-
-			// Toggle state
-			ShaderPackOptionList.this.irisSearch$searchModeActive = !ShaderPackOptionList.this.irisSearch$searchModeActive;
-
-			if (!ShaderPackOptionList.this.irisSearch$searchModeActive) {
-				// Reset search state on clear
-				ShaderPackOptionList.this.irisSearch$typedSearchQuery = "";
-				if (ShaderPackOptionList.this.container != null) {
-					ShaderPackOptionList.this.container.setSearchQuery("");
-				}
+			if (searchModeActive) {
+				disableSearchModeAndRebuild();
+			} else {
+				enableSearchModeAndRebuild();
 			}
-
-			// Fully refresh screen state pipeline
-			ShaderPackOptionList.this.rebuild();
 			return true;
 		}
 
